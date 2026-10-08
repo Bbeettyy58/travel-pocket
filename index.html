@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>旅遊手帳 · TravelPocket</title>
 
-  <!-- Google Fonts: Zen Maru Gothic -->
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -13,11 +13,11 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Leaflet CSS & JS (用於掛載 Google Maps 官方圖磚，永不破圖) -->
+  <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- LZ-String: 專利級無損壓縮庫 (純前端實現 URL 共享編輯，免後端，永不連線失敗) -->
+  <!-- LZ-String 專利級無損壓縮庫 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 
   <!-- Vue 3 -->
@@ -36,7 +36,7 @@
               100: '#FBF1DC',
               200: '#F6E0B3',
               300: '#EECA82',
-              400: '#E5A93C', /* 銀杏黃主色 */
+              400: '#E5A93C',
               500: '#D49427',
               600: '#B8781B',
               700: '#925B17',
@@ -57,6 +57,10 @@
   </script>
 
   <style>
+    /* 防止 Vue 載入前畫面閃爍或彈窗疊出 */
+    [v-cloak] {
+      display: none !important;
+    }
     :root {
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -72,7 +76,6 @@
     .safe-top-padding {
       padding-top: max(var(--sat), 52px);
     }
-    /* 緊湊型底部避讓距離：貼合螢幕與手勢條，不浪費縱向空間 */
     .compact-bottom-padding {
       padding-bottom: calc(56px + max(var(--sab), 8px));
     }
@@ -101,15 +104,14 @@
   </style>
 </head>
 <body class="relative min-h-screen">
-  <div id="app" class="relative z-10 flex flex-col min-h-screen">
+  <div id="app" v-cloak class="relative z-10 flex flex-col min-h-screen">
 
-    <!-- 背景銀杏葉飄落 Canvas (底層渲染，pointer-events-none，絕不遮擋地圖) -->
+    <!-- 背景銀杏葉飄落 Canvas -->
     <canvas id="ginkgo-canvas" class="fixed inset-0 w-full h-full pointer-events-none z-0 opacity-40"></canvas>
 
-    <!-- 頂部通用橫幅 (防動態島遮蔽) -->
+    <!-- 頂部通用橫幅 -->
     <header class="sticky top-0 z-30 bg-[#FBF8F2]/95 backdrop-blur-md border-b border-earth-clay/60 safe-top-padding px-4 pb-2.5 transition-colors shadow-sm">
       <div class="flex items-center justify-between gap-2 max-w-lg mx-auto">
-        <!-- 旅行標題與天數 (點擊直接進入設定編輯) -->
         <div class="flex items-center gap-2.5 min-w-0 flex-1">
           <button @click="showSettingsModal = true" class="w-10 h-10 rounded-2xl bg-ginkgo-400 text-white flex items-center justify-center text-lg shadow-md active:scale-95 transition-transform flex-shrink-0">
             {{ currentAppIcon }}
@@ -125,7 +127,6 @@
           </div>
         </div>
 
-        <!-- 單行氣候小卡與設定按鈕 -->
         <div class="flex items-center gap-2 flex-shrink-0">
           <div class="flex items-center gap-1.5 px-3 py-1.5 bg-earth-sand/90 rounded-2xl border border-earth-clay/80 shadow-inner whitespace-nowrap">
             <span class="text-base leading-none">{{ weather.icon }}</span>
@@ -139,7 +140,7 @@
         </div>
       </div>
 
-      <!-- 橫向滑動 56px 精緻日期膠囊 (依據自訂行程日期自動推算日文標準曜日) -->
+      <!-- 日期膠囊列 -->
       <div class="flex items-center gap-2 mt-2.5 overflow-x-auto no-scrollbar py-1 max-w-lg mx-auto">
         <button 
           v-for="(day, index) in tripDays" 
@@ -171,7 +172,7 @@
             <span class="text-xs font-bold text-earth-caramel tracking-wider uppercase">Day {{ activeDayIndex + 1 }} 主題</span>
             <h2 class="text-base font-black text-earth-night leading-snug">{{ currentDay.title }}</h2>
           </div>
-          <button @click="openEditCurrentDayModal" class="px-3 py-1.5 bg-white text-xs font-bold text-earth-bark rounded-xl border border-earth-clay shadow-sm active:scale-95">
+          <button @click="showSettingsModal = true" class="px-3 py-1.5 bg-white text-xs font-bold text-earth-bark rounded-xl border border-earth-clay shadow-sm active:scale-95">
             ✏️ 修改
           </button>
         </div>
@@ -417,7 +418,7 @@
       </section>
     </main>
 
-    <!-- 底部 4 核心導航列 (貼合螢幕緊湊高度) -->
+    <!-- 底部 4 核心導航列 -->
     <nav class="fixed bottom-0 left-0 right-0 z-40 bg-[#FBF8F2]/95 backdrop-blur-md border-t border-earth-clay/70 compact-nav-padding pt-1.5 transition-all shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
       <div class="flex items-center justify-around max-w-md mx-auto px-3">
         <button 
@@ -439,7 +440,7 @@
       <button class="absolute top-6 right-6 text-white text-2xl font-black bg-white/20 w-10 h-10 rounded-full flex items-center justify-center">✕</button>
     </div>
 
-    <!-- ⚙️ 設定彈窗 (單純連結共享選項) -->
+    <!-- ⚙️ 設定彈窗 (單純連結分享) -->
     <div v-if="showSettingsModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div class="bg-earth-washi w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto p-5 border border-earth-clay shadow-2xl space-y-4 no-scrollbar">
         <div class="flex items-center justify-between pb-2.5 border-b border-earth-clay">
@@ -447,7 +448,7 @@
           <button @click="showSettingsModal = false" class="text-earth-bark text-xl font-bold">✕</button>
         </div>
 
-        <!-- 🔗 傳連結共享編輯 (純連結模式，無 QR Code) -->
+        <!-- 🔗 傳連結共享編輯 (無 QR Code) -->
         <div class="bg-gradient-to-br from-ginkgo-50 to-amber-100/60 p-4 rounded-3xl border-2 border-ginkgo-300 space-y-3 shadow-sm">
           <div class="flex items-center gap-2">
             <span class="text-xl">🔗</span>
@@ -798,484 +799,4 @@
               if (decompressed) {
                 const parsed = JSON.parse(decompressed);
                 if (parsed.days) tripDays.value = parsed.days;
-                if (parsed.c) tripConfig.value = parsed.c;
-                if (parsed.d) dateSettings.value = parsed.d;
-                if (parsed.s) shoppingList.value = parsed.s;
-                if (parsed.e) expenses.value = parsed.e;
-                if (parsed.i) currentAppIcon.value = parsed.i;
-                saveAllToLocalStorage();
-                history.replaceState(null, '', window.location.pathname);
-                alert('✨ 成功載入旅伴分享的專屬行程！');
-                return true;
-              }
-            } catch (e) {
-              console.error('解析共享資料失敗', e);
-            }
-          }
-          return false;
-        };
-
-        const saveAllToLocalStorage = () => {
-          const payload = {
-            c: tripConfig.value,
-            d: dateSettings.value,
-            days: tripDays.value,
-            s: shoppingList.value,
-            e: expenses.value,
-            i: currentAppIcon.value
-          };
-          localStorage.setItem('travel_pocket_v3', JSON.stringify(payload));
-        };
-
-        const loadFromLocalStorage = () => {
-          const saved = localStorage.getItem('travel_pocket_v3');
-          if (saved) {
-            try {
-              const p = JSON.parse(saved);
-              if (p.c) tripConfig.value = p.c;
-              if (p.d) dateSettings.value = p.d;
-              if (p.days) tripDays.value = p.days;
-              if (p.s) shoppingList.value = p.s;
-              if (p.e) expenses.value = p.e;
-              if (p.i) currentAppIcon.value = p.i;
-            } catch (e) {}
-          }
-        };
-
-        const applyDateRange = () => {
-          if (!dateSettings.value.startDate || !dateSettings.value.endDate) return;
-          const start = new Date(dateSettings.value.startDate);
-          const end = new Date(dateSettings.value.endDate);
-          if (end < start) {
-            alert('返程日期不能早於出發日期！');
-            return;
-          }
-
-          const weekdaysJP = ['(日)', '(月)', '(火)', '(水)', '(木)', '(金)', '(土)'];
-          const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
-          const newDays = [];
-
-          for (let i = 0; i < diffDays; i++) {
-            const curDate = new Date(start);
-            curDate.setDate(start.getDate() + i);
-            const m = String(curDate.getMonth() + 1).padStart(2, '0');
-            const d = String(curDate.getDate()).padStart(2, '0');
-            const w = weekdaysJP[curDate.getDay()];
-
-            const existing = tripDays.value[i];
-            newDays.push({
-              id: existing ? existing.id : 'day_' + Date.now() + '_' + i,
-              dateFormatted: `${m}/${d}`,
-              weekday: w,
-              title: existing ? existing.title : `第 ${i + 1} 天旅行探索`,
-              spots: existing ? existing.spots : []
-            });
-          }
-
-          tripDays.value = newDays;
-          activeDayIndex.value = 0;
-          showSettingsModal.value = false;
-          saveAllToLocalStorage();
-          updateMapLayers();
-        };
-
-        const addNewDay = () => {
-          const count = tripDays.value.length;
-          const lastDay = tripDays.value[count - 1];
-          let nextDateFormatted = '10/19';
-          let nextWeekday = '(一)';
-          
-          if (lastDay && lastDay.dateFormatted) {
-            const parts = lastDay.dateFormatted.split('/');
-            const nextD = new Date(2026, parseInt(parts[0], 10) - 1, parseInt(parts[1], 10) + 1);
-            nextDateFormatted = `${String(nextD.getMonth() + 1).padStart(2, '0')}/${String(nextD.getDate()).padStart(2, '0')}`;
-            const weekdaysJP = ['(日)', '(月)', '(火)', '(水)', '(木)', '(金)', '(土)'];
-            nextWeekday = weekdaysJP[nextD.getDay()];
-          }
-
-          tripDays.value.push({
-            id: 'day_' + Date.now(),
-            dateFormatted: nextDateFormatted,
-            weekday: nextWeekday,
-            title: `第 ${count + 1} 天旅程`,
-            spots: []
-          });
-          activeDayIndex.value = tripDays.value.length - 1;
-          saveAllToLocalStorage();
-        };
-
-        const initGoogleMap = () => {
-          nextTick(() => {
-            const container = document.getElementById('leaflet-google-map');
-            if (!container) return;
-
-            if (leafletMap) {
-              leafletMap.remove();
-              leafletMap = null;
-            }
-
-            leafletMap = L.map('leaflet-google-map', {
-              zoomControl: false,
-              attributionControl: false
-            }).setView([35.6812, 139.7671], 13);
-
-            L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=zh-TW', {
-              maxZoom: 20
-            }).addTo(leafletMap);
-
-            updateMapLayers();
-          });
-        };
-
-        const updateMapLayers = () => {
-          if (!leafletMap) return;
-
-          mapMarkers.forEach(m => leafletMap.removeLayer(m));
-          mapMarkers = [];
-          if (mapPolyline) {
-            leafletMap.removeLayer(mapPolyline);
-            mapPolyline = null;
-          }
-
-          const spots = currentDay.value.spots || [];
-          if (!spots.length) return;
-
-          const latlngs = [];
-
-          spots.forEach((spot, idx) => {
-            const lat = spot.lat || (35.68 + idx * 0.015);
-            const lng = spot.lng || (139.71 + idx * 0.015);
-            latlngs.push([lat, lng]);
-
-            const iconHtml = `
-              <div style="
-                background: linear-gradient(135deg, #E5A93C, #D49427);
-                color: #FFFFFF;
-                width: 32px;
-                height: 32px;
-                border-radius: 16px 16px 16px 4px;
-                transform: rotate(-45deg);
-                box-shadow: 0 4px 10px rgba(114, 65, 20, 0.35);
-                border: 2px solid #FFFFFF;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              ">
-                <span style="
-                  transform: rotate(45deg);
-                  font-weight: 900;
-                  font-size: 13px;
-                  font-family: 'Zen Maru Gothic', sans-serif;
-                ">${idx + 1}</span>
-              </div>
-            `;
-
-            const customIcon = L.divIcon({
-              html: iconHtml,
-              className: 'custom-pin',
-              iconSize: [32, 32],
-              iconAnchor: [16, 32]
-            });
-
-            const marker = L.marker([lat, lng], { icon: customIcon }).addTo(leafletMap);
-            marker.bindPopup(`
-              <div style="font-size:12px; font-weight:700;">
-                <div style="color:#B8781B; margin-bottom:2px;">站點 ${idx + 1} · ${spot.time}</div>
-                <div style="font-size:14px; font-weight:900; color:#2C1D11;">${spot.name}</div>
-                <div style="color:#7A4B24; margin-top:4px;">${spot.notes || ''}</div>
-              </div>
-            `);
-
-            marker.on('click', () => {
-              selectedSpotIndex.value = idx;
-              mapMode.value = 'single';
-            });
-
-            mapMarkers.push(marker);
-          });
-
-          if (latlngs.length > 1) {
-            mapPolyline = L.polyline(latlngs, {
-              color: '#D49427',
-              weight: 4,
-              dashArray: '6, 8',
-              opacity: 0.9
-            }).addTo(leafletMap);
-          }
-
-          if (mapMode.value === 'all' && latlngs.length > 0) {
-            leafletMap.fitBounds(latlngs, { padding: [40, 40] });
-          }
-        };
-
-        const renderAllSpotsOnMap = () => {
-          mapMode.value = 'all';
-          updateMapLayers();
-        };
-
-        const focusSingleSpot = (spot, idx) => {
-          selectedSpotIndex.value = idx;
-          mapMode.value = 'single';
-          const lat = spot.lat || (35.68 + idx * 0.015);
-          const lng = spot.lng || (139.71 + idx * 0.015);
-          if (leafletMap) {
-            leafletMap.flyTo([lat, lng], 16, { duration: 1.2 });
-            if (mapMarkers[idx]) {
-              mapMarkers[idx].openPopup();
-            }
-          }
-        };
-
-        const locateOnMap = (spot) => {
-          const idx = currentDay.value.spots.findIndex(s => s.id === spot.id);
-          activeTab.value = 'map';
-          nextTick(() => {
-            initGoogleMap();
-            setTimeout(() => {
-              focusSingleSpot(spot, idx !== -1 ? idx : 0);
-            }, 300);
-          });
-        };
-
-        const openGoogleMapsApp = (destinationName) => {
-          const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destinationName + ' ' + tripConfig.value.tripName)}`;
-          window.open(url, '_blank');
-        };
-
-        const openDayFullRouteInGoogleMaps = () => {
-          const spots = currentDay.value.spots;
-          if (!spots.length) return;
-          const origin = encodeURIComponent(spots[0].name);
-          const destination = encodeURIComponent(spots[spots.length - 1].name);
-          const waypoints = spots.slice(1, -1).map(s => encodeURIComponent(s.name)).join('|');
-          const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=transit`;
-          window.open(url, '_blank');
-        };
-
-        const changeTab = (tabId) => {
-          activeTab.value = tabId;
-          if (tabId === 'map') {
-            initGoogleMap();
-          }
-        };
-
-        const openAddShoppingModal = () => {
-          newShoppingItem.value = { name: '', price: null, category: '藥妝美妝', store: '', image: '' };
-          showAddShoppingModal.value = true;
-        };
-        const handleShoppingImageUpload = (e) => {
-          const file = e.target.files[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => { newShoppingItem.value.image = event.target.result; };
-            reader.readAsDataURL(file);
-          }
-        };
-        const saveShoppingItem = () => {
-          if (!newShoppingItem.value.name) return;
-          shoppingList.value.push({ id: Date.now(), ...newShoppingItem.value, bought: false });
-          showAddShoppingModal.value = false;
-          saveAllToLocalStorage();
-        };
-        const toggleShoppingItem = (item) => {
-          item.bought = !item.bought;
-          saveAllToLocalStorage();
-        };
-        const deleteShoppingItem = (id) => {
-          shoppingList.value = shoppingList.value.filter(i => i.id !== id);
-          saveAllToLocalStorage();
-        };
-        const openLightbox = (imgSrc) => { if (imgSrc) lightboxImage.value = imgSrc; };
-
-        const openAddExpenseModal = () => {
-          newExpense.value = { title: '', amount: null, payer: '' };
-          showAddExpenseModal.value = true;
-        };
-        const saveNewExpense = () => {
-          if (!newExpense.value.title || !newExpense.value.amount || !newExpense.value.payer) return;
-          expenses.value.push({ id: Date.now(), ...newExpense.value });
-          showAddExpenseModal.value = false;
-          saveAllToLocalStorage();
-        };
-        const deleteExpense = (idx) => {
-          expenses.value.splice(idx, 1);
-          saveAllToLocalStorage();
-        };
-
-        const openAddSpotModal = () => {
-          newSpot.value = { name: '', time: '10:00', category: '景點', notes: '' };
-          showAddSpotModal.value = true;
-        };
-        const saveNewSpot = () => {
-          if (!newSpot.value.name) return;
-          currentDay.value.spots.push({
-            id: 'spot_' + Date.now(),
-            ...newSpot.value,
-            lat: 35.6812 + (Math.random() - 0.5) * 0.05,
-            lng: 139.7671 + (Math.random() - 0.5) * 0.05
-          });
-          showAddSpotModal.value = false;
-          saveAllToLocalStorage();
-          updateMapLayers();
-        };
-        const deleteSpot = (idx) => {
-          currentDay.value.spots.splice(idx, 1);
-          saveAllToLocalStorage();
-          updateMapLayers();
-        };
-
-        const setAppIcon = (emoji) => {
-          currentAppIcon.value = emoji;
-          saveAllToLocalStorage();
-        };
-
-        const resetToTemplateData = () => {
-          if (confirm('確定要還原為示範公版資料嗎？這將覆蓋現有內容。')) {
-            tripDays.value = JSON.parse(JSON.stringify(defaultTripDays));
-            tripConfig.value.tripName = '東京旅行';
-            dateSettings.value = { startDate: '2026-10-11', endDate: '2026-10-18' };
-            currentAppIcon.value = '🍂';
-            saveAllToLocalStorage();
-            showSettingsModal.value = false;
-            updateMapLayers();
-          }
-        };
-
-        const initGinkgoLeaves = () => {
-          const canvas = document.getElementById('ginkgo-canvas');
-          if (!canvas) return;
-          const ctx = canvas.getContext('2d');
-          let width = canvas.width = window.innerWidth;
-          let height = canvas.height = window.innerHeight;
-
-          window.addEventListener('resize', () => {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
-          });
-
-          const leaves = Array.from({ length: 18 }, () => ({
-            x: Math.random() * width,
-            y: Math.random() * height - height,
-            size: Math.random() * 14 + 16,
-            speedY: Math.random() * 0.8 + 0.5,
-            speedX: Math.random() * 0.6 - 0.3,
-            angle: Math.random() * Math.PI * 2,
-            spin: Math.random() * 0.02 - 0.01,
-            color: Math.random() > 0.3 ? '#E5A93C' : '#EECA82'
-          }));
-
-          const drawGinkgo = (ctx, x, y, size, angle, color) => {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(angle);
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.bezierCurveTo(-size * 0.7, -size * 0.6, -size * 0.9, -size * 1.1, -size * 0.2, -size * 1.25);
-            ctx.lineTo(0, -size * 0.85);
-            ctx.bezierCurveTo(size * 0.2, -size * 1.25, size * 0.9, -size * 1.1, size * 0.7, -size * 0.6);
-            ctx.closePath();
-            ctx.fill();
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.quadraticCurveTo(size * 0.1, size * 0.2, size * 0.15, size * 0.4);
-            ctx.stroke();
-            ctx.restore();
-          };
-
-          const animate = () => {
-            ctx.clearRect(0, 0, width, height);
-            leaves.forEach(l => {
-              l.y += l.speedY;
-              l.x += l.speedX + Math.sin(l.y * 0.01) * 0.5;
-              l.angle += l.spin;
-              if (l.y > height + 30) {
-                l.y = -30;
-                l.x = Math.random() * width;
-              }
-              drawGinkgo(ctx, l.x, l.y, l.size, l.angle, l.color);
-            });
-            requestAnimationFrame(animate);
-          };
-          animate();
-        };
-
-        onMounted(() => {
-          initGinkgoLeaves();
-          const loadedFromShare = loadSharedDataFromUrl();
-          if (!loadedFromShare) {
-            loadFromLocalStorage();
-          }
-          fetchLiveExchangeRate();
-          initGoogleMap();
-        });
-
-        return {
-          tripConfig,
-          dateSettings,
-          tripDays,
-          activeDayIndex,
-          currentDay,
-          currentDayDateString,
-          currentDayWeekday,
-          activeTab,
-          navTabs,
-          weather,
-          currentAppIcon,
-          presetIcons,
-          currentExchangeRate,
-          isFetchingRate,
-          lastRateUpdatedTime,
-          calcJPY,
-          shoppingList,
-          filteredShoppingList,
-          shoppingFilter,
-          shoppingTotalJPY,
-          shoppingProgress,
-          expenses,
-          settlementResults,
-          lightboxImage,
-          showSettingsModal,
-          showAddSpotModal,
-          showAddShoppingModal,
-          showAddExpenseModal,
-          shareSuccessNotice,
-          newSpot,
-          newShoppingItem,
-          newExpense,
-          mapMode,
-          selectedSpotIndex,
-          activeMapSpot,
-          formatMoney,
-          fetchLiveExchangeRate,
-          generateAndCopyShareLink,
-          applyDateRange,
-          addNewDay,
-          renderAllSpotsOnMap,
-          focusSingleSpot,
-          locateOnMap,
-          openGoogleMapsApp,
-          openDayFullRouteInGoogleMaps,
-          changeTab,
-          openAddShoppingModal,
-          handleShoppingImageUpload,
-          saveShoppingItem,
-          toggleShoppingItem,
-          deleteShoppingItem,
-          openLightbox,
-          openAddExpenseModal,
-          saveNewExpense,
-          deleteExpense,
-          openAddSpotModal,
-          saveNewSpot,
-          deleteSpot,
-          setAppIcon,
-          resetToTemplateData
-        };
-      }
-    }).mount('#app');
-  </script>
-</body>
-</html>
+                if (parsed.c)
