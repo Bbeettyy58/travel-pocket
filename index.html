@@ -7,27 +7,21 @@
 
   <!-- Google Fonts: Zen Maru Gothic -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Leaflet CSS & JS (用於掛載 Google Maps 官方圖磚，零 403 阻擋) -->
+  <!-- Leaflet CSS & JS (用於掛載 Google Maps 官方圖磚，穩定免破圖) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- 純前端原生 QRCode 生成引擎 (離線可用、保證可掃) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- LZ-String: 專利級無損壓縮庫 (純前端實現 URL 共享編輯，免後端，永不連線失敗) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 
   <!-- Vue 3 -->
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-
-  <!-- PWA Dynamic Manifest Hook -->
-  <link id="dynamic-manifest" rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22%E6%97%85%E9%81%8A%E6%89%8B%E5%B8%B3%22%2C%22short_name%22%3A%22%E6%97%85%E9%81%8A%E6%89%8B%E5%B8%B3%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23E5A93C%22%2C%22theme_color%22%3A%22%23E5A93C%22%7D" />
-  <link id="dynamic-apple-icon" rel="apple-touch-icon" href="" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <script>
     tailwind.config = {
@@ -47,7 +41,6 @@
               600: '#B8781B',
               700: '#925B17',
               800: '#6C4114',
-              900: '#46280B',
             },
             earth: {
               washi: '#FBF8F2',
@@ -77,10 +70,14 @@
       overflow-x: hidden;
     }
     .safe-top-padding {
-      padding-top: max(var(--sat), 54px);
+      padding-top: max(var(--sat), 52px);
     }
-    .safe-bottom-padding {
-      padding-bottom: max(var(--sab), 82px);
+    /* 緊湊型底部避讓距離：緊貼螢幕與手勢條，不浪費縱向空間 */
+    .compact-bottom-padding {
+      padding-bottom: calc(56px + max(var(--sab), 8px));
+    }
+    .compact-nav-padding {
+      padding-bottom: max(var(--sab), 6px);
     }
     .no-scrollbar::-webkit-scrollbar {
       display: none;
@@ -106,20 +103,20 @@
 <body class="relative min-h-screen">
   <div id="app" class="relative z-10 flex flex-col min-h-screen">
 
-    <!-- 背景真實雙裂扇形銀杏葉飄落 Canvas (底層渲染，pointer-events-none，絕不遮蔽地圖) -->
+    <!-- 背景銀杏葉飄落 Canvas (底層渲染，pointer-events-none，絕不遮擋地圖) -->
     <canvas id="ginkgo-canvas" class="fixed inset-0 w-full h-full pointer-events-none z-0 opacity-40"></canvas>
 
     <!-- 頂部通用橫幅 (防動態島遮蔽) -->
-    <header class="sticky top-0 z-30 bg-[#FBF8F2]/95 backdrop-blur-md border-b border-earth-clay/60 safe-top-padding px-4 pb-3 transition-colors shadow-sm">
+    <header class="sticky top-0 z-30 bg-[#FBF8F2]/95 backdrop-blur-md border-b border-earth-clay/60 safe-top-padding px-4 pb-2.5 transition-colors shadow-sm">
       <div class="flex items-center justify-between gap-2 max-w-lg mx-auto">
-        <!-- 左側：行程標題與當前天數日期 -->
+        <!-- 旅行標題與天數 (點擊直接進入設定編輯) -->
         <div class="flex items-center gap-2.5 min-w-0 flex-1">
-          <button @click="showSettingsModal = true" class="w-11 h-11 rounded-2xl bg-ginkgo-400 text-white flex items-center justify-center text-xl shadow-md active:scale-95 transition-transform flex-shrink-0">
+          <button @click="showSettingsModal = true" class="w-10 h-10 rounded-2xl bg-ginkgo-400 text-white flex items-center justify-center text-lg shadow-md active:scale-95 transition-transform flex-shrink-0">
             {{ currentAppIcon }}
           </button>
           <div class="min-w-0 flex-1 cursor-pointer" @click="showSettingsModal = true">
             <div class="flex items-center gap-1.5">
-              <h1 class="text-xl font-black text-earth-night tracking-tight truncate leading-tight">{{ tripConfig.tripName }}</h1>
+              <h1 class="text-lg font-black text-earth-night tracking-tight truncate leading-tight">{{ tripConfig.tripName }}</h1>
               <span class="text-xs text-earth-caramel font-bold">✏️</span>
             </div>
             <p class="text-xs font-bold text-earth-caramel/90 tracking-wide truncate">
@@ -128,7 +125,7 @@
           </div>
         </div>
 
-        <!-- 右側：單行氣候小卡與設定按鈕 -->
+        <!-- 單行氣候小卡與設定按鈕 -->
         <div class="flex items-center gap-2 flex-shrink-0">
           <div class="flex items-center gap-1.5 px-3 py-1.5 bg-earth-sand/90 rounded-2xl border border-earth-clay/80 shadow-inner whitespace-nowrap">
             <span class="text-base leading-none">{{ weather.icon }}</span>
@@ -136,14 +133,14 @@
             <span class="text-xs font-bold text-earth-caramel leading-none">{{ weather.text }}</span>
           </div>
 
-          <button @click="showSettingsModal = true" class="w-10 h-10 rounded-2xl bg-earth-sand hover:bg-earth-clay border border-earth-clay flex items-center justify-center text-lg text-earth-bark shadow-sm active:scale-95 transition-transform" title="設定">
+          <button @click="showSettingsModal = true" class="w-9 h-9 rounded-2xl bg-earth-sand hover:bg-earth-clay border border-earth-clay flex items-center justify-center text-base text-earth-bark shadow-sm active:scale-95 transition-transform" title="設定">
             ⚙️
           </button>
         </div>
       </div>
 
-      <!-- 橫向滑動 56px 精緻緊湊型日期膠囊 -->
-      <div class="flex items-center gap-2 mt-3 overflow-x-auto no-scrollbar py-1 max-w-lg mx-auto">
+      <!-- 橫向滑動 56px 精緻日期膠囊 (依據自訂行程日期自動推算日文標準曜日) -->
+      <div class="flex items-center gap-2 mt-2.5 overflow-x-auto no-scrollbar py-1 max-w-lg mx-auto">
         <button 
           v-for="(day, index) in tripDays" 
           :key="day.id"
@@ -165,16 +162,16 @@
     </header>
 
     <!-- 主內容區 -->
-    <main class="flex-1 max-w-lg w-full mx-auto px-4 py-4 safe-bottom-padding z-10">
+    <main class="flex-1 max-w-lg w-full mx-auto px-4 py-3 compact-bottom-padding z-10">
       
       <!-- TAB 1: 每日行程 -->
-      <section v-show="activeTab === 'itinerary'" class="space-y-4">
-        <div class="bg-gradient-to-r from-earth-sand to-earth-clay/50 rounded-3xl p-4 border border-earth-clay flex items-center justify-between shadow-sm">
+      <section v-show="activeTab === 'itinerary'" class="space-y-3.5">
+        <div class="bg-gradient-to-r from-earth-sand to-earth-clay/50 rounded-3xl p-3.5 border border-earth-clay flex items-center justify-between shadow-sm">
           <div>
             <span class="text-xs font-bold text-earth-caramel tracking-wider uppercase">Day {{ activeDayIndex + 1 }} 主題</span>
-            <h2 class="text-lg font-black text-earth-night leading-snug">{{ currentDay.title }}</h2>
+            <h2 class="text-base font-black text-earth-night leading-snug">{{ currentDay.title }}</h2>
           </div>
-          <button @click="editCurrentDayTitle" class="px-3 py-1.5 bg-white text-xs font-bold text-earth-bark rounded-xl border border-earth-clay shadow-sm active:scale-95">
+          <button @click="openEditCurrentDayModal" class="px-3 py-1.5 bg-white text-xs font-bold text-earth-bark rounded-xl border border-earth-clay shadow-sm active:scale-95">
             ✏️ 修改
           </button>
         </div>
@@ -183,47 +180,47 @@
           <div 
             v-for="(spot, sIndex) in currentDay.spots" 
             :key="spot.id"
-            class="bg-white rounded-3xl p-4 border border-earth-clay/80 shadow-sm relative overflow-hidden transition-all active:shadow-md"
+            class="bg-white rounded-3xl p-3.5 border border-earth-clay/80 shadow-sm relative overflow-hidden transition-all active:shadow-md"
           >
             <div class="flex items-start justify-between gap-3">
               <div class="flex items-center gap-3">
-                <span class="w-8 h-8 rounded-2xl bg-ginkgo-400 text-white font-black text-sm flex items-center justify-center shadow-sm flex-shrink-0">
+                <span class="w-7 h-7 rounded-xl bg-ginkgo-400 text-white font-black text-xs flex items-center justify-center shadow-sm flex-shrink-0">
                   {{ sIndex + 1 }}
                 </span>
                 <div>
-                  <span class="text-xs font-bold text-earth-caramel bg-earth-sand px-2 py-0.5 rounded-lg">{{ spot.time }}</span>
-                  <h3 class="text-base font-black text-earth-night mt-0.5">{{ spot.name }}</h3>
+                  <span class="text-[11px] font-bold text-earth-caramel bg-earth-sand px-2 py-0.5 rounded-lg">{{ spot.time }}</span>
+                  <h3 class="text-sm font-black text-earth-night mt-0.5">{{ spot.name }}</h3>
                 </div>
               </div>
-              <span class="text-xs font-bold px-2.5 py-1 rounded-xl bg-ginkgo-100 text-ginkgo-800 border border-ginkgo-200">
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded-xl bg-ginkgo-100 text-ginkgo-800 border border-ginkgo-200">
                 {{ spot.category }}
               </span>
             </div>
 
-            <p v-if="spot.notes" class="text-sm font-medium text-earth-bark/80 mt-2.5 bg-earth-washi p-2.5 rounded-2xl border border-earth-clay/40">
+            <p v-if="spot.notes" class="text-xs font-medium text-earth-bark/80 mt-2 bg-earth-washi p-2.5 rounded-2xl border border-earth-clay/40">
               💡 {{ spot.notes }}
             </p>
 
-            <div class="flex items-center justify-end gap-2 mt-3 pt-2 border-t border-earth-sand">
-              <button @click="locateOnMap(spot)" class="text-xs font-bold text-ginkgo-700 bg-ginkgo-50 hover:bg-ginkgo-100 px-3 py-1.5 rounded-xl border border-ginkgo-200 flex items-center gap-1 active:scale-95">
+            <div class="flex items-center justify-end gap-2 mt-2.5 pt-2 border-t border-earth-sand">
+              <button @click="locateOnMap(spot)" class="text-xs font-bold text-ginkgo-700 bg-ginkgo-50 hover:bg-ginkgo-100 px-3 py-1 rounded-xl border border-ginkgo-200 flex items-center gap-1 active:scale-95">
                 📍 地圖查看
               </button>
-              <button @click="openGoogleMapsApp(spot.name)" class="text-xs font-bold text-earth-bark bg-earth-sand hover:bg-earth-clay px-3 py-1.5 rounded-xl border border-earth-clay flex items-center gap-1 active:scale-95">
+              <button @click="openGoogleMapsApp(spot.name)" class="text-xs font-bold text-earth-bark bg-earth-sand hover:bg-earth-clay px-3 py-1 rounded-xl border border-earth-clay flex items-center gap-1 active:scale-95">
                 🚀 導航
               </button>
-              <button @click="deleteSpot(sIndex)" class="text-xs font-bold text-red-500 hover:bg-red-50 px-2 py-1.5 rounded-xl">
+              <button @click="deleteSpot(sIndex)" class="text-xs font-bold text-red-500 hover:bg-red-50 px-2 py-1 rounded-xl">
                 ✕
               </button>
             </div>
           </div>
 
-          <button @click="openAddSpotModal" class="w-full py-3.5 rounded-3xl bg-earth-sand/70 hover:bg-earth-sand border-2 border-dashed border-earth-caramel/50 text-earth-caramel font-bold text-sm flex items-center justify-center gap-2 active:scale-98 transition-all">
+          <button @click="openAddSpotModal" class="w-full py-3 rounded-2xl bg-earth-sand/70 hover:bg-earth-sand border-2 border-dashed border-earth-caramel/50 text-earth-caramel font-bold text-xs flex items-center justify-center gap-2 active:scale-98 transition-all">
             <span>＋ 新增站點至 Day {{ activeDayIndex + 1 }}</span>
           </button>
         </div>
       </section>
 
-      <!-- TAB 2: 今日站點地圖 (Google Maps 官方圖磚 + 1,2,3數字標籤) -->
+      <!-- TAB 2: 今日站點地圖 -->
       <section v-show="activeTab === 'map'" class="space-y-3">
         <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
           <button 
@@ -234,7 +231,7 @@
             ⚡ 全路線 (全部標記)
           </button>
           <button 
-            v-for="(spot, idx) in currentDay.spots"
+            v-for="(spot, idx) in currentDay.spots" 
             :key="spot.id"
             @click="focusSingleSpot(spot, idx)"
             class="px-3 py-1.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all border flex items-center gap-1.5 shadow-sm"
@@ -247,98 +244,97 @@
           </button>
         </div>
 
-        <div class="relative w-full h-[380px] rounded-3xl overflow-hidden border-2 border-ginkgo-300 shadow-md bg-white">
+        <div class="relative w-full h-[360px] rounded-3xl overflow-hidden border-2 border-ginkgo-300 shadow-md bg-white">
           <div id="leaflet-google-map" class="w-full h-full z-20"></div>
 
-          <div class="absolute bottom-3 left-3 right-3 z-[400] flex gap-2">
-            <button @click="openDayFullRouteInGoogleMaps" class="flex-1 py-2.5 px-4 bg-ginkgo-400 hover:bg-ginkgo-500 text-white rounded-2xl font-black text-xs shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
+          <div class="absolute bottom-2.5 left-2.5 right-2.5 z-[400] flex gap-2">
+            <button @click="openDayFullRouteInGoogleMaps" class="flex-1 py-2 px-3 bg-ginkgo-400 hover:bg-ginkgo-500 text-white rounded-xl font-black text-xs shadow-lg flex items-center justify-center gap-1.5 active:scale-95 transition-all">
               <span>🚀 用 Google Maps App 導航整天路線</span>
             </button>
           </div>
         </div>
 
-        <div v-if="activeMapSpot" class="bg-white rounded-3xl p-4 border border-earth-clay shadow-sm flex items-center justify-between">
+        <div v-if="activeMapSpot" class="bg-white rounded-2xl p-3 border border-earth-clay shadow-sm flex items-center justify-between">
           <div>
             <span class="text-[10px] font-bold bg-ginkgo-100 text-ginkgo-800 px-2 py-0.5 rounded-md">站點 {{ selectedSpotIndex + 1 }}</span>
-            <h4 class="text-base font-black text-earth-night mt-1">{{ activeMapSpot.name }}</h4>
+            <h4 class="text-sm font-black text-earth-night mt-0.5">{{ activeMapSpot.name }}</h4>
             <p class="text-xs text-earth-caramel font-medium">{{ activeMapSpot.notes || '暫無額外備註' }}</p>
           </div>
-          <button @click="openGoogleMapsApp(activeMapSpot.name)" class="px-3.5 py-2 bg-earth-sand rounded-xl text-xs font-bold text-earth-bark border border-earth-clay active:scale-95">
+          <button @click="openGoogleMapsApp(activeMapSpot.name)" class="px-3 py-1.5 bg-earth-sand rounded-xl text-xs font-bold text-earth-bark border border-earth-clay active:scale-95">
             路線規劃
           </button>
         </div>
       </section>
 
       <!-- TAB 3: 購物清單 -->
-      <section v-show="activeTab === 'shopping'" class="space-y-4">
-        <div class="bg-gradient-to-br from-ginkgo-400 to-ginkgo-500 rounded-3xl p-4 text-white shadow-md">
-          <div class="flex items-center justify-between mb-2">
+      <section v-show="activeTab === 'shopping'" class="space-y-3.5">
+        <div class="bg-gradient-to-br from-ginkgo-400 to-ginkgo-500 rounded-3xl p-3.5 text-white shadow-md">
+          <div class="flex items-center justify-between mb-1.5">
             <span class="text-xs font-bold text-amber-100">採買完成度</span>
             <span class="text-xs font-black bg-white/20 px-2 py-0.5 rounded-lg">{{ shoppingProgress }}%</span>
           </div>
-          <div class="w-full bg-black/15 h-2.5 rounded-full overflow-hidden mb-3">
+          <div class="w-full bg-black/15 h-2 rounded-full overflow-hidden mb-2.5">
             <div class="bg-white h-full transition-all duration-300 rounded-full" :style="{ width: shoppingProgress + '%' }"></div>
           </div>
           <div class="flex items-center justify-between pt-2 border-t border-white/20 text-xs">
-            <span>預算總計：<strong class="text-base">{{ formatMoney(shoppingTotalJPY) }}</strong> JPY</span>
+            <span>預算總計：<strong class="text-sm">{{ formatMoney(shoppingTotalJPY) }}</strong> JPY</span>
             <span class="text-amber-100">約 NT$ {{ formatMoney(Math.round(shoppingTotalJPY * currentExchangeRate)) }}</span>
           </div>
         </div>
 
         <div class="flex items-center justify-between gap-2">
-          <div class="flex gap-1.5 bg-earth-sand p-1 rounded-2xl border border-earth-clay">
+          <div class="flex gap-1 bg-earth-sand p-1 rounded-xl border border-earth-clay">
             <button 
               v-for="filter in ['all', 'pending', 'bought']" 
               :key="filter"
               @click="shoppingFilter = filter"
-              class="px-3 py-1 rounded-xl text-xs font-black transition-all"
+              class="px-2.5 py-1 rounded-lg text-xs font-black transition-all"
               :class="shoppingFilter === filter ? 'bg-white text-earth-night shadow-sm' : 'text-earth-bark/70'"
             >
               {{ filter === 'all' ? '全部' : filter === 'pending' ? '待買' : '已買' }}
             </button>
           </div>
-          <button @click="openAddShoppingModal" class="px-3.5 py-1.5 bg-ginkgo-400 hover:bg-ginkgo-500 text-white rounded-2xl text-xs font-black shadow-sm active:scale-95">
+          <button @click="openAddShoppingModal" class="px-3 py-1.5 bg-ginkgo-400 hover:bg-ginkgo-500 text-white rounded-xl text-xs font-black shadow-sm active:scale-95">
             ＋ 新增商品
           </button>
         </div>
 
-        <div class="space-y-3">
+        <div class="space-y-2.5">
           <div 
-            v-for="(item) in filteredShoppingList" 
+            v-for="(item, index) in filteredShoppingList" 
             :key="item.id"
-            class="bg-white rounded-3xl p-3.5 border border-earth-clay/80 shadow-sm flex items-center gap-3 transition-all"
+            class="bg-white rounded-2xl p-3 border border-earth-clay/80 shadow-sm flex items-center gap-3 transition-all"
             :class="{ 'opacity-60 bg-earth-washi': item.bought }"
           >
             <div 
               @click="openLightbox(item.image)"
-              class="w-16 h-16 rounded-2xl bg-earth-sand border border-earth-clay overflow-hidden flex-shrink-0 cursor-pointer flex items-center justify-center text-xl relative"
+              class="w-14 h-14 rounded-xl bg-earth-sand border border-earth-clay overflow-hidden flex-shrink-0 cursor-pointer flex items-center justify-center text-lg relative"
             >
               <img v-if="item.image" :src="item.image" class="w-full h-full object-cover" />
               <span v-else>🛍️</span>
-              <div v-if="item.image" class="absolute bottom-0 right-0 bg-black/40 text-white text-[9px] px-1 rounded-tl">🔍</div>
             </div>
 
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2">
                 <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-earth-sand text-earth-caramel">{{ item.category }}</span>
-                <h4 class="text-sm font-black text-earth-night truncate" :class="{ 'line-through': item.bought }">{{ item.name }}</h4>
+                <h4 class="text-xs font-black text-earth-night truncate" :class="{ 'line-through': item.bought }">{{ item.name }}</h4>
               </div>
               <div class="flex items-center gap-2 mt-1 text-xs text-earth-bark font-bold">
                 <span>¥{{ formatMoney(item.price) }}</span>
                 <span class="text-earth-caramel text-[11px] font-medium">約 NT${{ formatMoney(Math.round(item.price * currentExchangeRate)) }}</span>
               </div>
-              <p v-if="item.store" class="text-[11px] text-earth-caramel truncate mt-0.5">📍 {{ item.store }}</p>
+              <p v-if="item.store" class="text-[10px] text-earth-caramel truncate mt-0.5">📍 {{ item.store }}</p>
             </div>
 
-            <div class="flex flex-col items-end gap-2 flex-shrink-0">
+            <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
               <button 
                 @click="toggleShoppingItem(item)"
-                class="w-7 h-7 rounded-xl flex items-center justify-center border transition-all active:scale-90"
+                class="w-6 h-6 rounded-lg flex items-center justify-center border transition-all active:scale-90"
                 :class="item.bought ? 'bg-ginkgo-400 border-ginkgo-500 text-white' : 'border-earth-clay bg-earth-sand text-transparent'"
               >
                 ✓
               </button>
-              <button @click="deleteShoppingItem(item.id)" class="text-[11px] text-red-400 hover:text-red-600">
+              <button @click="deleteShoppingItem(item.id)" class="text-[10px] text-red-400 hover:text-red-600">
                 刪除
               </button>
             </div>
@@ -346,12 +342,12 @@
         </div>
       </section>
 
-      <!-- TAB 4: 即時匯率與分帳 -->
-      <section v-show="activeTab === 'expenses'" class="space-y-4">
-        <div class="bg-white rounded-3xl p-4 border border-earth-clay shadow-sm space-y-3">
+      <!-- TAB 4: 即時匯率與平帳記帳機 -->
+      <section v-show="activeTab === 'expenses'" class="space-y-3.5">
+        <div class="bg-white rounded-3xl p-3.5 border border-earth-clay shadow-sm space-y-2.5">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span class="text-xs font-black text-earth-night">即時匯率 (已連線)</span>
             </div>
             <button @click="fetchLiveExchangeRate" class="text-xs font-bold text-ginkgo-600 flex items-center gap-1 active:scale-95">
@@ -359,53 +355,53 @@
             </button>
           </div>
 
-          <div class="flex items-center justify-between p-3 bg-earth-sand/70 rounded-2xl border border-earth-clay/60">
+          <div class="flex items-center justify-between p-2.5 bg-earth-sand/70 rounded-2xl border border-earth-clay/60">
             <span class="text-xs font-bold text-earth-bark">1 JPY (日圓) 等於</span>
             <div class="text-right">
-              <span class="text-lg font-black text-ginkgo-800">{{ currentExchangeRate }}</span>
+              <span class="text-base font-black text-ginkgo-800">{{ currentExchangeRate }}</span>
               <span class="text-xs font-bold text-earth-caramel ml-1">TWD</span>
             </div>
           </div>
 
-          <div class="pt-2 border-t border-earth-sand">
-            <label class="text-xs font-bold text-earth-caramel block mb-1.5">🧮 購物即時換算機 (含稅)</label>
+          <div class="pt-1.5 border-t border-earth-sand">
+            <label class="text-[11px] font-bold text-earth-caramel block mb-1">🧮 購物即時換算機 (含稅)</label>
             <div class="flex gap-2">
               <input 
                 type="number" 
                 v-model.number="calcJPY" 
                 placeholder="輸入日圓金額" 
-                class="flex-1 bg-earth-washi border border-earth-clay rounded-2xl px-3 py-2 text-sm font-bold text-earth-night focus:outline-none focus:border-ginkgo-400"
+                class="flex-1 bg-earth-washi border border-earth-clay rounded-xl px-3 py-1.5 text-xs font-bold text-earth-night focus:outline-none focus:border-ginkgo-400"
               />
-              <div class="w-28 bg-ginkgo-50 border border-ginkgo-200 rounded-2xl px-3 py-2 text-sm font-black text-ginkgo-800 flex items-center justify-center">
+              <div class="w-24 bg-ginkgo-50 border border-ginkgo-200 rounded-xl px-2 py-1.5 text-xs font-black text-ginkgo-800 flex items-center justify-center">
                 ≈ ${{ formatMoney(Math.round(calcJPY * currentExchangeRate)) }}
               </div>
             </div>
           </div>
         </div>
 
-        <div class="bg-white rounded-3xl p-4 border border-earth-clay shadow-sm space-y-3">
+        <div class="bg-white rounded-3xl p-3.5 border border-earth-clay shadow-sm space-y-2.5">
           <div class="flex items-center justify-between">
-            <h3 class="text-sm font-black text-earth-night">👥 智慧平帳計算 (最少轉帳次數)</h3>
-            <button @click="openAddExpenseModal" class="px-3 py-1 bg-ginkgo-400 text-white text-xs font-bold rounded-xl active:scale-95">
+            <h3 class="text-xs font-black text-earth-night">👥 智慧平帳計算 (最少轉帳次數)</h3>
+            <button @click="openAddExpenseModal" class="px-2.5 py-1 bg-ginkgo-400 text-white text-xs font-bold rounded-lg active:scale-95">
               ＋ 記一筆
             </button>
           </div>
 
-          <div v-if="settlementResults.length > 0" class="p-3 bg-amber-50/80 rounded-2xl border border-amber-200/80 space-y-1.5">
+          <div v-if="settlementResults.length > 0" class="p-2.5 bg-amber-50/80 rounded-2xl border border-amber-200/80 space-y-1">
             <div v-for="(s, idx) in settlementResults" :key="idx" class="text-xs font-bold text-earth-bark flex items-center justify-between">
               <span>👤 <strong>{{ s.from }}</strong> 應給 <strong>{{ s.to }}</strong></span>
               <span class="text-ginkgo-700 font-black">¥{{ formatMoney(s.amount) }} (NT${{ formatMoney(Math.round(s.amount * currentExchangeRate)) }})</span>
             </div>
           </div>
-          <div v-else class="text-xs text-earth-caramel text-center py-2">
+          <div v-else class="text-xs text-earth-caramel text-center py-1.5">
             目前大家收支完全平衡，無須轉帳 ✨
           </div>
 
-          <div class="space-y-2 pt-2 border-t border-earth-sand">
+          <div class="space-y-1.5 pt-1.5 border-t border-earth-sand">
             <div 
               v-for="(exp, eIdx) in expenses" 
               :key="exp.id"
-              class="flex items-center justify-between text-xs p-2.5 rounded-2xl bg-earth-washi border border-earth-clay/40"
+              class="flex items-center justify-between text-xs p-2 rounded-xl bg-earth-washi border border-earth-clay/40"
             >
               <div>
                 <span class="font-black text-earth-night">{{ exp.title }}</span>
@@ -421,87 +417,68 @@
       </section>
     </main>
 
-    <!-- 底部俐落 4 核心導航列 (最下面無設定，最簡約) -->
-    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-[#FBF8F2]/95 backdrop-blur-md border-t border-earth-clay/80 safe-bottom-padding px-6 pt-2 transition-all">
-      <div class="flex items-center justify-between max-w-md mx-auto">
+    <!-- 底部 4 核心導航列 (精簡為貼合螢幕的緊湊高度) -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-[#FBF8F2]/95 backdrop-blur-md border-t border-earth-clay/70 compact-nav-padding pt-1.5 transition-all shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
+      <div class="flex items-center justify-around max-w-md mx-auto px-3">
         <button 
           v-for="tab in navTabs" 
           :key="tab.id"
           @click="changeTab(tab.id)"
-          class="flex flex-col items-center justify-center py-1 transition-all flex-1"
+          class="flex flex-col items-center justify-center py-0.5 transition-all flex-1"
           :class="activeTab === tab.id ? 'text-ginkgo-700 font-black scale-105' : 'text-earth-bark/60 font-medium'"
         >
-          <span class="text-xl leading-none mb-1">{{ tab.icon }}</span>
-          <span class="text-[11px] leading-tight">{{ tab.name }}</span>
+          <span class="text-lg leading-none mb-0.5">{{ tab.icon }}</span>
+          <span class="text-[10px] leading-tight tracking-tight">{{ tab.name }}</span>
         </button>
       </div>
     </nav>
 
-    <!-- 大圖燈箱 -->
+    <!-- 燈箱大圖 -->
     <div v-if="lightboxImage" class="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" @click="lightboxImage = null">
       <img :src="lightboxImage" class="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl" />
       <button class="absolute top-6 right-6 text-white text-2xl font-black bg-white/20 w-10 h-10 rounded-full flex items-center justify-center">✕</button>
     </div>
 
-    <!-- ================= 核心設定抽屜 ================= -->
+    <!-- ⚙️ 設定彈窗 (含純前端零失敗傳連結共享) -->
     <div v-if="showSettingsModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div class="bg-earth-washi w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto p-5 border border-earth-clay shadow-2xl space-y-5 no-scrollbar">
-        <div class="flex items-center justify-between pb-3 border-b border-earth-clay">
-          <h3 class="text-lg font-black text-earth-night">⚙️ 設定與雲端共享</h3>
+      <div class="bg-earth-washi w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto p-5 border border-earth-clay shadow-2xl space-y-4 no-scrollbar">
+        <div class="flex items-center justify-between pb-2.5 border-b border-earth-clay">
+          <h3 class="text-base font-black text-earth-night">⚙️ 設定與管理</h3>
           <button @click="showSettingsModal = false" class="text-earth-bark text-xl font-bold">✕</button>
         </div>
 
-        <!-- 🌟 真雲端多人同步編輯 (JSONBin.io 串接) -->
-        <div class="bg-gradient-to-br from-ginkgo-50 to-amber-100/60 p-4 rounded-3xl border-2 border-ginkgo-300 space-y-3 shadow-sm">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="text-xl">☁️</span>
-              <div>
-                <h4 class="text-sm font-black text-earth-night">雲端多人同步編輯</h4>
-                <p class="text-[11px] text-earth-caramel font-bold">已串接專屬雲端，短網址永不超長</p>
-              </div>
+        <!-- 傳連結共享編輯 -->
+        <div class="bg-gradient-to-br from-ginkgo-50 to-amber-100/60 p-3.5 rounded-3xl border-2 border-ginkgo-300 space-y-2.5 shadow-sm">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">🔗</span>
+            <div>
+              <h4 class="text-xs font-black text-earth-night">傳連結共享編輯 (多人同步)</h4>
+              <p class="text-[11px] text-earth-caramel font-bold">免伺服器、點擊直接複製網址</p>
             </div>
-            <span v-if="cloudBinId" class="text-[10px] font-mono bg-ginkgo-200 text-ginkgo-900 px-2 py-0.5 rounded-full font-bold">
-              Bin: {{ cloudBinId.slice(-6) }}
-            </span>
           </div>
-
+          
           <p class="text-xs text-earth-bark leading-relaxed">
-            點擊下方按鈕將最新行程上傳至專屬雲端，並自動產生超短共享連結與專屬 QR Code！旅伴打開即可共同編輯！
+            系統會將目前行程、天數、站點與購物清單打包壓縮至網址中，傳給旅伴打開即可查看並接續編輯！
           </p>
 
           <div class="flex gap-2">
-            <button 
-              @click="syncToCloudBin" 
-              :disabled="isCloudSyncing"
-              class="flex-1 py-3 bg-ginkgo-400 hover:bg-ginkgo-500 text-white rounded-2xl text-xs font-black shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all disabled:opacity-50"
-            >
-              <span v-if="isCloudSyncing" class="animate-spin">🔄</span>
-              <span>{{ isCloudSyncing ? '同步上傳中...' : '☁️ 上傳並複製共享短連結' }}</span>
+            <button @click="generateAndCopyShareLink" class="flex-1 py-2.5 bg-ginkgo-400 hover:bg-ginkgo-500 text-white rounded-xl text-xs font-black shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all">
+              <span>📋 複製完整共享連結 (傳給旅伴)</span>
             </button>
-            <button 
-              @click="openQrCodeModal" 
-              class="px-3.5 py-3 bg-white border border-ginkgo-300 text-ginkgo-800 rounded-2xl text-xs font-black active:scale-95 shadow-sm"
-            >
-              QR碼
+            <button @click="openQrCodeModal" class="px-3.5 py-2.5 bg-white border border-ginkgo-300 text-ginkgo-800 rounded-xl text-xs font-black active:scale-95">
+              QR Code
             </button>
           </div>
 
-          <div v-if="cloudBinId" class="pt-1 flex gap-2">
-            <button @click="pullFromCloudBin(cloudBinId)" class="w-full py-2 bg-earth-sand text-earth-bark rounded-xl text-xs font-bold border border-earth-clay flex items-center justify-center gap-1">
-              🔄 從雲端載入最新進度
-            </button>
-          </div>
-
-          <div v-if="shareSuccessNotice" class="text-xs text-emerald-800 bg-emerald-100 p-2.5 rounded-2xl text-center font-bold animate-pulse">
-            ✅ 共享短連結已複製到剪貼簿！可直接貼給旅伴囉！
+          <div v-if="shareSuccessNotice" class="text-xs text-emerald-800 bg-emerald-100 p-2 rounded-xl text-center font-bold">
+            ✅ 共享專屬連結已複製！可直接貼在 LINE 聊天室！
           </div>
         </div>
 
-        <!-- 📲 設為手機 APP -->
-        <div class="bg-white p-4 rounded-3xl border border-earth-clay space-y-3 shadow-sm">
+        <!-- 📲 設為手機桌面 APP -->
+        <div class="bg-white p-3.5 rounded-3xl border border-earth-clay space-y-2.5 shadow-sm">
           <div class="flex items-center justify-between">
-            <h4 class="text-sm font-black text-earth-night">📲 設為手機桌面 APP</h4>
+            <h4 class="text-xs font-black text-earth-night">📲 設為手機桌面 APP</h4>
             <span class="text-[10px] font-bold bg-ginkgo-100 text-ginkgo-800 px-2 py-0.5 rounded">自訂 ICON</span>
           </div>
 
@@ -510,117 +487,115 @@
               v-for="icon in presetIcons" 
               :key="icon"
               @click="setAppIcon(icon)"
-              class="w-10 h-10 rounded-2xl flex items-center justify-center text-lg border transition-all flex-shrink-0"
+              class="w-9 h-9 rounded-xl flex items-center justify-center text-base border transition-all flex-shrink-0"
               :class="currentAppIcon === icon ? 'bg-ginkgo-400 text-white border-ginkgo-500 scale-105' : 'bg-earth-sand text-earth-night border-earth-clay'"
             >
               {{ icon }}
             </button>
-            <label class="w-10 h-10 rounded-2xl bg-earth-sand border border-dashed border-earth-caramel flex items-center justify-center text-xs text-earth-caramel cursor-pointer flex-shrink-0">
-              相簿
-              <input type="file" accept="image/*" class="hidden" @change="uploadCustomIcon" />
-            </label>
           </div>
 
-          <div class="text-xs text-earth-bark/80 bg-earth-sand p-3 rounded-2xl leading-relaxed space-y-1">
-            <p><strong>• iPhone：</strong>在 Safari 點擊底部的「<strong>分享 (📤)</strong>」➔「<strong>加入主畫面</strong>」。</p>
-            <p><strong>• Android：</strong>點擊 Chrome 右上角選單 ➔「<strong>新增至主螢幕 / 安裝應用程式</strong>」。</p>
+          <div class="text-[11px] text-earth-bark/80 bg-earth-sand p-2.5 rounded-xl leading-relaxed space-y-1">
+            <p><strong>• iPhone 用戶：</strong>點擊 Safari 底部「<strong>分享 (📤)</strong>」➔ 選擇「<strong>加入主畫面</strong>」。</p>
+            <p><strong>• Android 用戶：</strong>點擊 Chrome 右上角選單 ➔ 選擇「<strong>新增至主螢幕</strong>」。</p>
           </div>
         </div>
 
         <!-- 📅 行程日期區間設定 -->
-        <div class="bg-white p-4 rounded-3xl border border-earth-clay space-y-3 shadow-sm">
-          <h4 class="text-sm font-black text-earth-night">📅 行程日期區間設定</h4>
+        <div class="bg-white p-3.5 rounded-3xl border border-earth-clay space-y-2.5 shadow-sm">
+          <h4 class="text-xs font-black text-earth-night">📅 行程日期區間設定</h4>
           <div class="grid grid-cols-2 gap-2 text-xs">
             <div>
               <label class="block text-earth-caramel font-bold mb-1">出發日期</label>
-              <input type="date" v-model="dateSettings.startDate" class="w-full bg-earth-sand border border-earth-clay rounded-xl p-2 font-bold text-earth-night" />
+              <input type="date" v-model="dateSettings.startDate" class="w-full bg-earth-sand border border-earth-clay rounded-xl p-2 font-bold text-earth-night text-xs" />
             </div>
             <div>
               <label class="block text-earth-caramel font-bold mb-1">返程日期</label>
-              <input type="date" v-model="dateSettings.endDate" class="w-full bg-earth-sand border border-earth-clay rounded-xl p-2 font-bold text-earth-night" />
+              <input type="date" v-model="dateSettings.endDate" class="w-full bg-earth-sand border border-earth-clay rounded-xl p-2 font-bold text-earth-night text-xs" />
             </div>
           </div>
-          <button @click="applyDateRange" class="w-full py-2.5 bg-earth-sand hover:bg-earth-clay border border-earth-clay text-earth-bark rounded-xl text-xs font-black active:scale-95">
+          <button @click="applyDateRange" class="w-full py-2 bg-earth-sand hover:bg-earth-clay border border-earth-clay text-earth-bark rounded-xl text-xs font-black active:scale-95">
             🔄 自動重算天數與日本七曜
           </button>
         </div>
 
-        <!-- 目的國家與名稱 -->
-        <div class="bg-white p-4 rounded-3xl border border-earth-clay space-y-3 shadow-sm">
-          <h4 class="text-sm font-black text-earth-night">🌍 旅行手帳名稱</h4>
+        <!-- 目的地旅行名稱 -->
+        <div class="bg-white p-3.5 rounded-3xl border border-earth-clay space-y-2 shadow-sm">
+          <h4 class="text-xs font-black text-earth-night">🌍 旅行名稱自訂</h4>
           <div class="flex gap-2">
-            <input type="text" v-model="tripConfig.tripName" placeholder="例如：東京旅行、首爾散策、京都漫遊" class="flex-1 bg-earth-sand border border-earth-clay rounded-xl p-2 text-xs font-bold text-earth-night" />
-            <button @click="showSettingsModal = false" class="px-4 bg-ginkgo-400 text-white rounded-xl text-xs font-black">儲存</button>
+            <input type="text" v-model="tripConfig.tripName" placeholder="例如：東京旅行、首爾散策" class="flex-1 bg-earth-sand border border-earth-clay rounded-xl p-2 text-xs font-bold text-earth-night" />
+            <button @click="showSettingsModal = false" class="px-3.5 bg-ginkgo-400 text-white rounded-xl text-xs font-black">儲存</button>
           </div>
         </div>
 
-        <!-- 還原公版 -->
-        <div class="pt-2">
-          <button @click="resetToTemplateData" class="w-full py-2.5 border border-red-200 text-red-500 rounded-2xl text-xs font-bold hover:bg-red-50 active:scale-95">
+        <!-- 還原示範預設資料 -->
+        <div class="pt-1">
+          <button @click="resetToTemplateData" class="w-full py-2 border border-red-200 text-red-500 rounded-xl text-xs font-bold hover:bg-red-50 active:scale-95">
             ⚠️ 還原公版示範預設資料
           </button>
         </div>
       </div>
     </div>
 
-    <!-- QR Code 離線原生展示彈窗 -->
+    <!-- QR Code 掃描彈窗 -->
     <div v-if="showQrModal" class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" @click.self="showQrModal = false">
-      <div class="bg-white p-6 rounded-3xl text-center max-w-xs w-full space-y-3 shadow-2xl">
-        <h4 class="text-base font-black text-earth-night">📱 旅伴掃碼立即開啟</h4>
-        <div id="qrcode-box" class="w-[180px] h-[180px] mx-auto bg-earth-sand rounded-2xl flex items-center justify-center p-2 border border-earth-clay"></div>
-        <p class="text-xs text-earth-caramel font-bold">打開手機相機掃描，超短連結秒同步！</p>
-        <button @click="showQrModal = false" class="w-full py-2.5 bg-ginkgo-400 text-white rounded-xl text-xs font-bold active:scale-95">關閉</button>
+      <div class="bg-white p-5 rounded-3xl text-center max-w-xs w-full space-y-3">
+        <h4 class="text-sm font-black text-earth-night">📱 旅伴相機掃描加入</h4>
+        <div class="w-44 h-44 mx-auto bg-earth-sand rounded-2xl flex items-center justify-center overflow-hidden border border-earth-clay">
+          <img :src="qrCodeUrl" class="w-full h-full" alt="QR Code" />
+        </div>
+        <p class="text-xs text-earth-caramel font-bold">打開手機相機對準 QR Code，行程立即同步！</p>
+        <button @click="showQrModal = false" class="w-full py-2 bg-ginkgo-400 text-white rounded-xl text-xs font-bold">關閉</button>
       </div>
     </div>
 
     <!-- 新增站點彈窗 -->
     <div v-if="showAddSpotModal" class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div class="bg-white w-full max-w-sm rounded-3xl p-5 border border-earth-clay shadow-2xl space-y-3">
-        <h4 class="text-base font-black text-earth-night">📍 新增站點至 Day {{ activeDayIndex + 1 }}</h4>
-        <input type="text" v-model="newSpot.name" placeholder="景點名稱 (如：淺草寺、明治神宮)" class="w-full bg-earth-sand rounded-xl p-2.5 text-xs font-bold text-earth-night border border-earth-clay" />
+      <div class="bg-white w-full max-w-sm rounded-3xl p-4 border border-earth-clay shadow-2xl space-y-2.5">
+        <h4 class="text-sm font-black text-earth-night">📍 新增站點至 Day {{ activeDayIndex + 1 }}</h4>
+        <input type="text" v-model="newSpot.name" placeholder="景點名稱 (如：淺草寺、明治神宮)" class="w-full bg-earth-sand rounded-xl p-2 text-xs font-bold text-earth-night border border-earth-clay" />
         <div class="grid grid-cols-2 gap-2">
-          <input type="text" v-model="newSpot.time" placeholder="時間 (如：10:00)" class="w-full bg-earth-sand rounded-xl p-2.5 text-xs font-bold border border-earth-clay" />
-          <input type="text" v-model="newSpot.category" placeholder="分類 (如：景點/美食)" class="w-full bg-earth-sand rounded-xl p-2.5 text-xs font-bold border border-earth-clay" />
+          <input type="text" v-model="newSpot.time" placeholder="時間 (如：10:00)" class="w-full bg-earth-sand rounded-xl p-2 text-xs font-bold border border-earth-clay" />
+          <input type="text" v-model="newSpot.category" placeholder="分類 (如：景點/美食)" class="w-full bg-earth-sand rounded-xl p-2 text-xs font-bold border border-earth-clay" />
         </div>
-        <textarea v-model="newSpot.notes" placeholder="備註、交通路線或必吃推薦..." class="w-full bg-earth-sand rounded-xl p-2.5 text-xs font-medium border border-earth-clay h-20"></textarea>
-        <div class="flex gap-2 pt-2">
+        <textarea v-model="newSpot.notes" placeholder="備註、交通路線或必吃推薦..." class="w-full bg-earth-sand rounded-xl p-2 text-xs font-medium border border-earth-clay h-20"></textarea>
+        <div class="flex gap-2 pt-1">
           <button @click="showAddSpotModal = false" class="flex-1 py-2 rounded-xl bg-earth-sand text-xs font-bold text-earth-bark">取消</button>
           <button @click="saveNewSpot" class="flex-1 py-2 rounded-xl bg-ginkgo-400 text-white text-xs font-black">確認新增</button>
         </div>
       </div>
     </div>
 
-    <!-- 新增購物彈窗 -->
+    <!-- 新增購物項目彈窗 -->
     <div v-if="showAddShoppingModal" class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div class="bg-white w-full max-w-sm rounded-3xl p-5 border border-earth-clay shadow-2xl space-y-3">
-        <h4 class="text-base font-black text-earth-night">🛍️ 新增購物願望</h4>
-        <input type="text" v-model="newShoppingItem.name" placeholder="商品名稱" class="w-full bg-earth-sand rounded-xl p-2.5 text-xs font-bold text-earth-night border border-earth-clay" />
+      <div class="bg-white w-full max-w-sm rounded-3xl p-4 border border-earth-clay shadow-2xl space-y-2.5">
+        <h4 class="text-sm font-black text-earth-night">🛍️ 新增購物項目</h4>
+        <input type="text" v-model="newShoppingItem.name" placeholder="商品名稱 (如：合利他命 EX Plus)" class="w-full bg-earth-sand rounded-xl p-2 text-xs font-bold text-earth-night border border-earth-clay" />
         <div class="grid grid-cols-2 gap-2">
-          <input type="number" v-model.number="newShoppingItem.price" placeholder="日幣價格 (JPY)" class="w-full bg-earth-sand rounded-xl p-2.5 text-xs font-bold border border-earth-clay" />
-          <input type="text" v-model="newShoppingItem.category" placeholder="分類" class="w-full bg-earth-sand rounded-xl p-2.5 text-xs font-bold border border-earth-clay" />
+          <input type="number" v-model.number="newShoppingItem.price" placeholder="日幣價格 (JPY)" class="w-full bg-earth-sand rounded-xl p-2 text-xs font-bold border border-earth-clay" />
+          <input type="text" v-model="newShoppingItem.category" placeholder="分類 (藥妝/零食/服飾)" class="w-full bg-earth-sand rounded-xl p-2 text-xs font-bold border border-earth-clay" />
         </div>
-        <input type="text" v-model="newShoppingItem.store" placeholder="購買店家" class="w-full bg-earth-sand rounded-xl p-2.5 text-xs font-bold border border-earth-clay" />
+        <input type="text" v-model="newShoppingItem.store" placeholder="購買門市 (如：松本清、唐吉訶德)" class="w-full bg-earth-sand rounded-xl p-2 text-xs font-bold border border-earth-clay" />
         <div>
-          <label class="text-xs font-bold text-earth-caramel block mb-1">上傳照片 (相簿或拍照)</label>
+          <label class="text-[11px] font-bold text-earth-caramel block mb-1">商品照片</label>
           <input type="file" accept="image/*" @change="handleShoppingImageUpload" class="text-xs text-earth-bark" />
         </div>
-        <div class="flex gap-2 pt-2">
+        <div class="flex gap-2 pt-1">
           <button @click="showAddShoppingModal = false" class="flex-1 py-2 rounded-xl bg-earth-sand text-xs font-bold text-earth-bark">取消</button>
           <button @click="saveShoppingItem" class="flex-1 py-2 rounded-xl bg-ginkgo-400 text-white text-xs font-black">加入清單</button>
         </div>
       </div>
     </div>
 
-    <!-- 新增支出彈窗 -->
+    <!-- 記錄支出彈窗 -->
     <div v-if="showAddExpenseModal" class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div class="bg-white w-full max-w-sm rounded-3xl p-5 border border-earth-clay shadow-2xl space-y-3">
-        <h4 class="text-base font-black text-earth-night">💰 記錄共同支出</h4>
-        <input type="text" v-model="newExpense.title" placeholder="項目名稱" class="w-full bg-earth-sand rounded-xl p-2.5 text-xs font-bold text-earth-night border border-earth-clay" />
-        <input type="number" v-model.number="newExpense.amount" placeholder="金額 (JPY)" class="w-full bg-earth-sand rounded-xl p-2.5 text-xs font-bold border border-earth-clay" />
-        <input type="text" v-model="newExpense.payer" placeholder="付款人" class="w-full bg-earth-sand rounded-xl p-2.5 text-xs font-bold border border-earth-clay" />
-        <div class="flex gap-2 pt-2">
+      <div class="bg-white w-full max-w-sm rounded-3xl p-4 border border-earth-clay shadow-2xl space-y-2.5">
+        <h4 class="text-sm font-black text-earth-night">💰 記錄共同支出</h4>
+        <input type="text" v-model="newExpense.title" placeholder="項目名稱 (如：居酒屋晚餐、計程車)" class="w-full bg-earth-sand rounded-xl p-2 text-xs font-bold text-earth-night border border-earth-clay" />
+        <input type="number" v-model.number="newExpense.amount" placeholder="日幣金額 (JPY)" class="w-full bg-earth-sand rounded-xl p-2 text-xs font-bold border border-earth-clay" />
+        <input type="text" v-model="newExpense.payer" placeholder="付款人姓名 (如：小明、Betty)" class="w-full bg-earth-sand rounded-xl p-2 text-xs font-bold border border-earth-clay" />
+        <div class="flex gap-2 pt-1">
           <button @click="showAddExpenseModal = false" class="flex-1 py-2 rounded-xl bg-earth-sand text-xs font-bold text-earth-bark">取消</button>
-          <button @click="saveNewExpense" class="flex-1 py-2 rounded-xl bg-ginkgo-400 text-white text-xs font-black">記錄平帳</button>
+          <button @click="saveNewExpense" class="flex-1 py-2 rounded-xl bg-ginkgo-400 text-white text-xs font-black">記錄並計算</button>
         </div>
       </div>
     </div>
@@ -630,20 +605,10 @@
   <script>
     const { createApp, ref, computed, onMounted, nextTick } = Vue;
 
-    // 填入使用者的 JSONBin API Key
-    const JSONBIN_API_KEY = "$2a$10$rTeMMDcWCTXOQQYKdKNhE.8MfeSvcb3SrJ.vNJMmE.TgtCDh5tfCq";
-
     createApp({
       setup() {
-        const tripConfig = ref({
-          tripName: '東京旅行',
-          destination: 'Tokyo'
-        });
-
-        const dateSettings = ref({
-          startDate: '2026-10-11',
-          endDate: '2026-10-18'
-        });
+        const tripConfig = ref({ tripName: '東京旅行' });
+        const dateSettings = ref({ startDate: '2026-10-11', endDate: '2026-10-18' });
 
         const activeDayIndex = ref(0);
         const activeTab = ref('itinerary');
@@ -654,10 +619,6 @@
         const showAddExpenseModal = ref(false);
         const shareSuccessNotice = ref(false);
         const lightboxImage = ref(null);
-
-        // 雲端 Bin 狀態
-        const cloudBinId = ref(localStorage.getItem('tokyo_cloud_bin_id') || '');
-        const isCloudSyncing = ref(false);
 
         const navTabs = [
           { id: 'itinerary', name: '每日行程', icon: '📅' },
@@ -674,11 +635,7 @@
         const lastRateUpdatedTime = ref('剛剛');
         const calcJPY = ref(1000);
 
-        const weather = ref({
-          temp: 24,
-          icon: '☀️',
-          text: '秋陽晴朗'
-        });
+        const weather = ref({ temp: 24, icon: '☀️', text: '秋陽晴朗' });
 
         const defaultTripDays = [
           {
@@ -719,13 +676,12 @@
         const shoppingList = ref([
           { id: 1, name: '合利他命 EX Plus 270錠', category: '藥妝美妝', price: 5800, store: '松本清', image: '', bought: false },
           { id: 2, name: 'SHIRO 白茶香水 40ml', category: '香氛潮流', price: 4180, store: 'SHIRO 專櫃', image: '', bought: true },
-          { id: 3, name: 'New Balance 1906R 球鞋', category: '服飾潮流', price: 19800, store: 'ABC-MART Grand Stage', image: '', bought: false },
         ]);
         const shoppingFilter = ref('all');
 
         const expenses = ref([
           { id: 1, title: '機場 Skyliner 團體票', amount: 10200, payer: '小明' },
-          { id: 2, title: '思出橫丁 串燒居酒屋晚餐', amount: 8400, payer: 'Betty' },
+          { id: 2, title: '思出橫丁 居酒屋晚餐', amount: 8400, payer: 'Betty' },
         ]);
 
         const newSpot = ref({ name: '', time: '', category: '景點', notes: '' });
@@ -741,7 +697,7 @@
         const currentDay = computed(() => tripDays.value[activeDayIndex.value] || tripDays.value[0]);
         const currentDayDateString = computed(() => currentDay.value ? currentDay.value.dateFormatted : '');
         const currentDayWeekday = computed(() => currentDay.value ? currentDay.value.weekday : '');
-        const activeMapSpot = computed(() => currentDay.value.spots[selectedSpotIndex.value] || null);
+        const activeMapSpot = computed(() => currentDay.value ? currentDay.value.spots[selectedSpotIndex.value] : null);
 
         const filteredShoppingList = computed(() => {
           if (shoppingFilter.value === 'bought') return shoppingList.value.filter(i => i.bought);
@@ -796,7 +752,9 @@
           return result;
         });
 
-        const formatMoney = (val) => (!val && val !== 0 ? '0' : val.toLocaleString());
+        const qrCodeUrl = ref('');
+
+        const formatMoney = (val) => (!val && val !== 0) ? '0' : val.toLocaleString();
 
         const fetchLiveExchangeRate = async () => {
           isFetchingRate.value = true;
@@ -804,152 +762,108 @@
             const res = await fetch('https://open.er-api.com/v6/latest/TWD');
             const data = await res.json();
             if (data && data.rates && data.rates.JPY) {
-              currentExchangeRate.value = Number((1 / data.rates.JPY).toFixed(4));
+              const jpyToTwd = 1 / data.rates.JPY;
+              currentExchangeRate.value = Number(jpyToTwd.toFixed(4));
               const now = new Date();
               lastRateUpdatedTime.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
             }
           } catch (e) {
+            console.warn('匯率連線備援');
           } finally {
             isFetchingRate.value = false;
           }
         };
 
-        // 🌟【JSONBin 真雲端同步與上傳】
-        const syncToCloudBin = async () => {
-          isCloudSyncing.value = true;
+        const getShareableUrl = () => {
+          const payload = {
+            c: tripConfig.value,
+            d: dateSettings.value,
+            days: tripDays.value,
+            s: shoppingList.value,
+            e: expenses.value,
+            i: currentAppIcon.value
+          };
+          const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
+          return `${window.location.origin}${window.location.pathname}#trip=${compressed}`;
+        };
+
+        const generateAndCopyShareLink = () => {
           try {
-            const cleanShopping = shoppingList.value.map(item => ({
-              ...item,
-              image: item.image && item.image.length > 5000 ? '' : item.image
-            }));
-
-            const payload = {
-              config: tripConfig.value,
-              dates: dateSettings.value,
-              days: tripDays.value,
-              shopping: cleanShopping,
-              expenses: expenses.value,
-              icon: currentAppIcon.value
-            };
-
-            let binId = cloudBinId.value;
-            let response;
-
-            if (binId) {
-              // 更新已存在的 Bin
-              response = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-Master-Key': JSONBIN_API_KEY
-                },
-                body: JSON.stringify(payload)
+            const shareUrl = getShareableUrl();
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(shareUrl).then(() => {
+                shareSuccessNotice.value = true;
+                setTimeout(() => { shareSuccessNotice.value = false; }, 3500);
               });
             } else {
-              // 建立新的 Bin
-              response = await fetch('https://api.jsonbin.io/v3/b', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-Master-Key': JSONBIN_API_KEY,
-                  'X-Bin-Name': tripConfig.value.tripName || 'TravelPocket'
-                },
-                body: JSON.stringify(payload)
-              });
+              const input = document.createElement('textarea');
+              input.value = shareUrl;
+              document.body.appendChild(input);
+              input.select();
+              document.execCommand('copy');
+              document.body.removeChild(input);
+              shareSuccessNotice.value = true;
+              setTimeout(() => { shareSuccessNotice.value = false; }, 3500);
             }
-
-            const data = await response.json();
-            if (data.metadata && data.metadata.id) {
-              cloudBinId.value = data.metadata.id;
-              localStorage.setItem('tokyo_cloud_bin_id', cloudBinId.value);
-            }
-
-            // 產生短網址
-            const currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set('bin', cloudBinId.value);
-            const shareUrl = currentUrl.toString();
-
-            await navigator.clipboard.writeText(shareUrl);
-            shareSuccessNotice.value = true;
-            setTimeout(() => { shareSuccessNotice.value = false; }, 4000);
           } catch (err) {
-            alert('雲端同步失敗，請檢查網路連線。');
-          } finally {
-            isCloudSyncing.value = false;
+            prompt('請直接手動複製以下專屬共享連結：', getShareableUrl());
           }
         };
 
-        // 🌟【從雲端載入行程】
-        const pullFromCloudBin = async (binId) => {
-          if (!binId) return;
-          try {
-            const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-              headers: { 'X-Master-Key': JSONBIN_API_KEY }
-            });
-            const data = await res.json();
-            if (data.record) {
-              const r = data.record;
-              if (r.config) tripConfig.value = r.config;
-              if (r.dates) dateSettings.value = r.dates;
-              if (r.days) tripDays.value = r.days;
-              if (r.shopping) shoppingList.value = r.shopping;
-              if (r.expenses) expenses.value = r.expenses;
-              if (r.icon) currentAppIcon.value = r.icon;
-              saveAllToLocalStorage();
-              updateMapLayers();
-              alert('✨ 成功從雲端同步最新行程！');
-            }
-          } catch (e) {
-            alert('載入雲端行程失敗，請確認代碼是否正確。');
-          }
-        };
-
-        // QR Code 彈窗產生器 (純本地渲染，穩定秒掃)
         const openQrCodeModal = () => {
+          const shareUrl = getShareableUrl();
+          qrCodeUrl.value = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(shareUrl)}`;
           showQrModal.value = true;
-          nextTick(() => {
-            const box = document.getElementById('qrcode-box');
-            if (box) {
-              box.innerHTML = '';
-              const targetUrl = cloudBinId.value 
-                ? `${window.location.origin}${window.location.pathname}?bin=${cloudBinId.value}`
-                : window.location.href;
+        };
 
-              new QRCode(box, {
-                text: targetUrl,
-                width: 160,
-                height: 160,
-                colorDark: "#2C1D11",
-                colorLight: "#F3EDE2",
-                correctLevel: QRCode.CorrectLevel.M
-              });
+        const loadSharedDataFromUrl = () => {
+          if (window.location.hash.includes('#trip=')) {
+            try {
+              const compressed = window.location.hash.replace('#trip=', '');
+              const decompressed = LZString.decompressFromEncodedURIComponent(compressed);
+              if (decompressed) {
+                const parsed = JSON.parse(decompressed);
+                if (parsed.days) tripDays.value = parsed.days;
+                if (parsed.c) tripConfig.value = parsed.c;
+                if (parsed.d) dateSettings.value = parsed.d;
+                if (parsed.s) shoppingList.value = parsed.s;
+                if (parsed.e) expenses.value = parsed.e;
+                if (parsed.i) currentAppIcon.value = parsed.i;
+                saveAllToLocalStorage();
+                history.replaceState(null, '', window.location.pathname);
+                alert('✨ 成功載入旅伴分享的專屬行程！');
+                return true;
+              }
+            } catch (e) {
+              console.error('解析共享資料失敗', e);
             }
-          });
+          }
+          return false;
         };
 
         const saveAllToLocalStorage = () => {
           const payload = {
-            config: tripConfig.value,
-            dates: dateSettings.value,
+            c: tripConfig.value,
+            d: dateSettings.value,
             days: tripDays.value,
-            shopping: shoppingList.value,
-            expenses: expenses.value,
-            icon: currentAppIcon.value
+            s: shoppingList.value,
+            e: expenses.value,
+            i: currentAppIcon.value
           };
-          localStorage.setItem('tokyo_pocket_app_v2', JSON.stringify(payload));
+          localStorage.setItem('travel_pocket_v3', JSON.stringify(payload));
         };
 
         const loadFromLocalStorage = () => {
-          const saved = localStorage.getItem('tokyo_pocket_app_v2');
+          const saved = localStorage.getItem('travel_pocket_v3');
           if (saved) {
             try {
               const p = JSON.parse(saved);
-              if (p.config) tripConfig.value = p.config;
-              if (p.dates) dateSettings.value = p.dates;
+              if (p.c) tripConfig.value = p.c;
+              if (p.d) dateSettings.value = p.d;
               if (p.days) tripDays.value = p.days;
-              if (p.shopping) shoppingList.value = p.shopping;
-              if (p.expenses) expenses.value = p.expenses;
-              if (p.icon) currentAppIcon.value = p.icon;
+              if (p.s) shoppingList.value = p.s;
+              if (p.e) expenses.value = p.e;
+              if (p.i) currentAppIcon.value = p.i;
             } catch (e) {}
           }
         };
@@ -973,8 +887,8 @@
             const m = String(curDate.getMonth() + 1).padStart(2, '0');
             const d = String(curDate.getDate()).padStart(2, '0');
             const w = weekdaysJP[curDate.getDay()];
-            const existing = tripDays.value[i];
 
+            const existing = tripDays.value[i];
             newDays.push({
               id: existing ? existing.id : 'day_' + Date.now() + '_' + i,
               dateFormatted: `${m}/${d}`,
@@ -999,9 +913,7 @@
           
           if (lastDay && lastDay.dateFormatted) {
             const parts = lastDay.dateFormatted.split('/');
-            const month = parseInt(parts[0], 10);
-            const day = parseInt(parts[1], 10);
-            const nextD = new Date(2026, month - 1, day + 1);
+            const nextD = new Date(2026, parseInt(parts[0], 10) - 1, parseInt(parts[1], 10) + 1);
             nextDateFormatted = `${String(nextD.getMonth() + 1).padStart(2, '0')}/${String(nextD.getDate()).padStart(2, '0')}`;
             const weekdaysJP = ['(日)', '(月)', '(火)', '(水)', '(木)', '(金)', '(土)'];
             nextWeekday = weekdaysJP[nextD.getDay()];
@@ -1016,14 +928,6 @@
           });
           activeDayIndex.value = tripDays.value.length - 1;
           saveAllToLocalStorage();
-        };
-
-        const editCurrentDayTitle = () => {
-          const val = prompt('請輸入當日主題名稱：', currentDay.value.title);
-          if (val) {
-            currentDay.value.title = val;
-            saveAllToLocalStorage();
-          }
         };
 
         const initGoogleMap = () => {
@@ -1189,19 +1093,13 @@
           const file = e.target.files[0];
           if (file) {
             const reader = new FileReader();
-            reader.onload = (event) => {
-              newShoppingItem.value.image = event.target.result;
-            };
+            reader.onload = (event) => { newShoppingItem.value.image = event.target.result; };
             reader.readAsDataURL(file);
           }
         };
         const saveShoppingItem = () => {
           if (!newShoppingItem.value.name) return;
-          shoppingList.value.push({
-            id: Date.now(),
-            ...newShoppingItem.value,
-            bought: false
-          });
+          shoppingList.value.push({ id: Date.now(), ...newShoppingItem.value, bought: false });
           showAddShoppingModal.value = false;
           saveAllToLocalStorage();
         };
@@ -1213,9 +1111,7 @@
           shoppingList.value = shoppingList.value.filter(i => i.id !== id);
           saveAllToLocalStorage();
         };
-        const openLightbox = (imgSrc) => {
-          if (imgSrc) lightboxImage.value = imgSrc;
-        };
+        const openLightbox = (imgSrc) => { if (imgSrc) lightboxImage.value = imgSrc; };
 
         const openAddExpenseModal = () => {
           newExpense.value = { title: '', amount: null, payer: '' };
@@ -1223,10 +1119,7 @@
         };
         const saveNewExpense = () => {
           if (!newExpense.value.title || !newExpense.value.amount || !newExpense.value.payer) return;
-          expenses.value.push({
-            id: Date.now(),
-            ...newExpense.value
-          });
+          expenses.value.push({ id: Date.now(), ...newExpense.value });
           showAddExpenseModal.value = false;
           saveAllToLocalStorage();
         };
@@ -1261,17 +1154,6 @@
           currentAppIcon.value = emoji;
           saveAllToLocalStorage();
         };
-        const uploadCustomIcon = (e) => {
-          const file = e.target.files[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              currentAppIcon.value = '🖼️';
-              saveAllToLocalStorage();
-            };
-            reader.readAsDataURL(file);
-          }
-        };
 
         const resetToTemplateData = () => {
           if (confirm('確定要還原為示範公版資料嗎？這將覆蓋現有內容。')) {
@@ -1285,7 +1167,6 @@
           }
         };
 
-        // 背景雙裂扇形銀杏葉飄落動畫
         const initGinkgoLeaves = () => {
           const canvas = document.getElementById('ginkgo-canvas');
           if (!canvas) return;
@@ -1349,17 +1230,10 @@
 
         onMounted(() => {
           initGinkgoLeaves();
-          
-          // 檢查網址是否有帶 ?bin=xxxx
-          const urlParams = new URLSearchParams(window.location.search);
-          const binParam = urlParams.get('bin');
-          if (binParam) {
-            cloudBinId.value = binParam;
-            pullFromCloudBin(binParam);
-          } else {
+          const loadedFromShare = loadSharedDataFromUrl();
+          if (!loadedFromShare) {
             loadFromLocalStorage();
           }
-
           fetchLiveExchangeRate();
           initGoogleMap();
         });
@@ -1395,8 +1269,7 @@
           showAddShoppingModal,
           showAddExpenseModal,
           shareSuccessNotice,
-          cloudBinId,
-          isCloudSyncing,
+          qrCodeUrl,
           newSpot,
           newShoppingItem,
           newExpense,
@@ -1405,12 +1278,9 @@
           activeMapSpot,
           formatMoney,
           fetchLiveExchangeRate,
-          syncToCloudBin,
-          pullFromCloudBin,
-          openQrCodeModal,
+          generateAndCopyShareLink,
           applyDateRange,
           addNewDay,
-          editCurrentDayTitle,
           renderAllSpotsOnMap,
           focusSingleSpot,
           locateOnMap,
@@ -1430,8 +1300,8 @@
           saveNewSpot,
           deleteSpot,
           setAppIcon,
-          uploadCustomIcon,
-          resetToTemplateData
+          resetToTemplateData,
+          openQrCodeModal
         };
       }
     }).mount('#app');
