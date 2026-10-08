@@ -444,4 +444,269 @@
 
         const currentAppIcon = ref('🍂');
         const currentExchangeRate = ref(0.2085);
-        const weather = ref({ temp:
+        const weather = ref({ temp: 24, icon: '☀️', text: '秋陽晴朗' });
+
+        const defaultTripDays = [
+          {
+            id: 'd1',
+            dateFormatted: '10/11',
+            weekday: '(日)',
+            title: '抵達東京 · 探索新宿歌舞伎町',
+            spots: [
+              { id: 's1', name: '成田國際機場', time: '13:30', category: '交通', lat: 35.7719, lng: 140.3929, notes: '搭乘 Skyliner 前往市區' },
+              { id: 's2', name: '新宿御苑', time: '15:30', category: '景點', lat: 35.6852, lng: 139.7101, notes: '觀賞秋季林木' },
+            ]
+          },
+          {
+            id: 'd2',
+            dateFormatted: '10/12',
+            weekday: '(月)',
+            title: '經典下町 · 淺草寺與晴空塔',
+            spots: [
+              { id: 's3', name: '淺草寺雷門', time: '09:30', category: '歷史', lat: 35.7118, lng: 139.7967, notes: '參拜並品嘗人形燒' },
+            ]
+          }
+        ];
+
+        const tripDays = ref(JSON.parse(JSON.stringify(defaultTripDays)));
+
+        const shoppingList = ref([
+          { id: 1, name: '合利他命 EX Plus 270錠', category: '藥妝', price: 5800, bought: false },
+        ]);
+
+        const expenses = ref([
+          { id: 1, title: '機場 Skyliner 團體票', amount: 10200, payer: '小明' },
+        ]);
+
+        const newSpot = ref({ name: '', time: '10:00', category: '景點', notes: '' });
+        const newShoppingItem = ref({ name: '', price: null, category: '藥妝' });
+        const newExpense = ref({ title: '', amount: null, payer: '' });
+
+        let leafletMap = null;
+
+        const currentDay = computed(() => tripDays.value[activeDayIndex.value] || tripDays.value[0]);
+        const currentDayDateString = computed(() => currentDay.value ? currentDay.value.dateFormatted : '');
+        const currentDayWeekday = computed(() => currentDay.value ? currentDay.value.weekday : '');
+
+        const settlementResults = computed(() => {
+          if (!expenses.value.length) return [];
+          const participants = [...new Set(expenses.value.map(e => e.payer))];
+          if (participants.length < 2) return [];
+
+          const balance = {};
+          participants.forEach(p => balance[p] = 0);
+          const totalAmount = expenses.value.reduce((sum, e) => sum + e.amount, 0);
+          const perPerson = totalAmount / participants.length;
+
+          expenses.value.forEach(e => { balance[e.payer] += e.amount; });
+          participants.forEach(p => { balance[p] -= perPerson; });
+
+          const debtors = [];
+          const creditors = [];
+          for (const p in balance) {
+            if (balance[p] < -0.1) debtors.push({ name: p, amount: -balance[p] });
+            else if (balance[p] > 0.1) creditors.push({ name: p, amount: balance[p] });
+          }
+
+          const result = [];
+          let d = 0, c = 0;
+          while (d < debtors.length && c < creditors.length) {
+            const minAmt = Math.min(debtors[d].amount, creditors[c].amount);
+            result.push({ from: debtors[d].name, to: creditors[c].name, amount: Math.round(minAmt) });
+            debtors[d].amount -= minAmt;
+            creditors[c].amount -= minAmt;
+            if (debtors[d].amount < 0.1) d++;
+            if (creditors[c].amount < 0.1) c++;
+          }
+          return result;
+        });
+
+        const formatMoney = (val) => (!val && val !== 0) ? '0' : val.toLocaleString();
+
+        const getShareableUrl = () => {
+          const payload = {
+            c: tripConfig.value,
+            d: dateSettings.value,
+            days: tripDays.value,
+            s: shoppingList.value,
+            e: expenses.value
+          };
+          const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
+          return `${window.location.origin}${window.location.pathname}#trip=${compressed}`;
+        };
+
+        const generateAndCopyShareLink = () => {
+          const shareUrl = getShareableUrl();
+          navigator.clipboard.writeText(shareUrl).then(() => {
+            shareSuccessNotice.value = true;
+            setTimeout(() => { shareSuccessNotice.value = false; }, 3500);
+          }).catch(() => {
+            prompt('請手動複製連結：', shareUrl);
+          });
+        };
+
+        const loadSharedDataFromUrl = () => {
+          if (window.location.hash.includes('#trip=')) {
+            try {
+              const compressed = window.location.hash.replace('#trip=', '');
+              const decompressed = LZString.decompressFromEncodedURIComponent(compressed);
+              if (decompressed) {
+                const parsed = JSON.parse(decompressed);
+                if (parsed.days) tripDays.value = parsed.days;
+                if (parsed.c) tripConfig.value = parsed.c;
+                if (parsed.d) dateSettings.value = parsed.d;
+                if (parsed.s) shoppingList.value = parsed.s;
+                if (parsed.e) expenses.value = parsed.e;
+                saveAllToLocalStorage();
+                history.replaceState(null, '', window.location.pathname);
+                alert('✨ 成功載入旅伴分享的專屬行程！');
+                return true;
+              }
+            } catch (e) {}
+          }
+          return false;
+        };
+
+        const saveAllToLocalStorage = () => {
+          const payload = {
+            c: tripConfig.value,
+            d: dateSettings.value,
+            days: tripDays.value,
+            s: shoppingList.value,
+            e: expenses.value
+          };
+          localStorage.setItem('travel_pocket_v3', JSON.stringify(payload));
+        };
+
+        const loadFromLocalStorage = () => {
+          const saved = localStorage.getItem('travel_pocket_v3');
+          if (saved) {
+            try {
+              const p = JSON.parse(saved);
+              if (p.c) tripConfig.value = p.c;
+              if (p.d) dateSettings.value = p.d;
+              if (p.days) tripDays.value = p.days;
+              if (p.s) shoppingList.value = p.s;
+              if (p.e) expenses.value = p.e;
+            } catch (e) {}
+          }
+        };
+
+        const applyDateRange = () => {
+          if (!dateSettings.value.startDate || !dateSettings.value.endDate) return;
+          const start = new Date(dateSettings.value.startDate);
+          const end = new Date(dateSettings.value.endDate);
+          const weekdaysJP = ['(日)', '(月)', '(火)', '(水)', '(木)', '(金)', '(土)'];
+          const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+          const newDays = [];
+
+          for (let i = 0; i < diffDays; i++) {
+            const curDate = new Date(start);
+            curDate.setDate(start.getDate() + i);
+            const m = String(curDate.getMonth() + 1).padStart(2, '0');
+            const d = String(curDate.getDate()).padStart(2, '0');
+            const w = weekdaysJP[curDate.getDay()];
+            const existing = tripDays.value[i];
+            newDays.push({
+              id: existing ? existing.id : 'day_' + Date.now() + '_' + i,
+              dateFormatted: `${m}/${d}`,
+              weekday: w,
+              title: existing ? existing.title : `第 ${i + 1} 天旅程`,
+              spots: existing ? existing.spots : []
+            });
+          }
+          tripDays.value = newDays;
+          showSettingsModal.value = false;
+          saveAllToLocalStorage();
+        };
+
+        const addNewDay = () => {
+          const count = tripDays.value.length;
+          tripDays.value.push({
+            id: 'day_' + Date.now(),
+            dateFormatted: `10/${11 + count}`,
+            weekday: '(行)',
+            title: `第 ${count + 1} 天旅程`,
+            spots: []
+          });
+          activeDayIndex.value = tripDays.value.length - 1;
+          saveAllToLocalStorage();
+        };
+
+        const initGoogleMap = () => {
+          nextTick(() => {
+            const container = document.getElementById('leaflet-google-map');
+            if (!container) return;
+            if (leafletMap) leafletMap.remove();
+            leafletMap = L.map('leaflet-google-map', { zoomControl: false, attributionControl: false }).setView([35.6812, 139.7671], 13);
+            L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=zh-TW', { maxZoom: 20 }).addTo(leafletMap);
+          });
+        };
+
+        const openGoogleMapsApp = (name) => {
+          window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`, '_blank');
+        };
+
+        const openDayFullRouteInGoogleMaps = () => {
+          const spots = currentDay.value.spots;
+          if (!spots.length) return;
+          const origin = encodeURIComponent(spots[0].name);
+          const dest = encodeURIComponent(spots[spots.length - 1].name);
+          window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=transit`, '_blank');
+        };
+
+        const changeTab = (tabId) => {
+          activeTab.value = tabId;
+          if (tabId === 'map') initGoogleMap();
+        };
+
+        const saveShoppingItem = () => {
+          if (!newShoppingItem.value.name) return;
+          shoppingList.value.push({ id: Date.now(), ...newShoppingItem.value, bought: false });
+          showAddShoppingModal.value = false;
+          saveAllToLocalStorage();
+        };
+        const deleteShoppingItem = (id) => {
+          shoppingList.value = shoppingList.value.filter(i => i.id !== id);
+          saveAllToLocalStorage();
+        };
+
+        const saveNewExpense = () => {
+          if (!newExpense.value.title || !newExpense.value.amount) return;
+          expenses.value.push({ id: Date.now(), ...newExpense.value });
+          showAddExpenseModal.value = false;
+          saveAllToLocalStorage();
+        };
+        const deleteExpense = (idx) => {
+          expenses.value.splice(idx, 1);
+          saveAllToLocalStorage();
+        };
+
+        const saveNewSpot = () => {
+          if (!newSpot.value.name) return;
+          currentDay.value.spots.push({ id: 'spot_' + Date.now(), ...newSpot.value, lat: 35.68, lng: 139.76 });
+          showAddSpotModal.value = false;
+          saveAllToLocalStorage();
+        };
+        const deleteSpot = (idx) => {
+          currentDay.value.spots.splice(idx, 1);
+          saveAllToLocalStorage();
+        };
+
+        onMounted(() => {
+          if (!loadSharedDataFromUrl()) loadFromLocalStorage();
+        });
+
+        return {
+          tripConfig, dateSettings, tripDays, activeDayIndex, currentDay, currentDayDateString, currentDayWeekday,
+          activeTab, navTabs, weather, currentAppIcon, currentExchangeRate, shoppingList, expenses, settlementResults,
+          showSettingsModal, showAddSpotModal, showAddShoppingModal, showAddExpenseModal, shareSuccessNotice,
+          newSpot, newShoppingItem, newExpense, formatMoney, generateAndCopyShareLink, applyDateRange, addNewDay,
+          openGoogleMapsApp, openDayFullRouteInGoogleMaps, changeTab, saveShoppingItem, deleteShoppingItem,
+          saveNewExpense, deleteExpense, saveNewSpot, deleteSpot
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
