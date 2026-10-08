@@ -439,7 +439,7 @@
       <button class="absolute top-6 right-6 text-white text-2xl font-black bg-white/20 w-10 h-10 rounded-full flex items-center justify-center">✕</button>
     </div>
 
-    <!-- ⚙️ 設定彈窗 (含純前端零失敗傳連結共享) -->
+    <!-- ⚙️ 設定彈窗 (單純連結共享選項) -->
     <div v-if="showSettingsModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div class="bg-earth-washi w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto p-5 border border-earth-clay shadow-2xl space-y-4 no-scrollbar">
         <div class="flex items-center justify-between pb-2.5 border-b border-earth-clay">
@@ -447,31 +447,26 @@
           <button @click="showSettingsModal = false" class="text-earth-bark text-xl font-bold">✕</button>
         </div>
 
-        <!-- 傳連結共享編輯 -->
-        <div class="bg-gradient-to-br from-ginkgo-50 to-amber-100/60 p-3.5 rounded-3xl border-2 border-ginkgo-300 space-y-2.5 shadow-sm">
+        <!-- 🔗 傳連結共享編輯 (純連結模式，無 QR Code) -->
+        <div class="bg-gradient-to-br from-ginkgo-50 to-amber-100/60 p-4 rounded-3xl border-2 border-ginkgo-300 space-y-3 shadow-sm">
           <div class="flex items-center gap-2">
-            <span class="text-lg">🔗</span>
+            <span class="text-xl">🔗</span>
             <div>
-              <h4 class="text-xs font-black text-earth-night">傳連結共享編輯 (多人同步)</h4>
-              <p class="text-[11px] text-earth-caramel font-bold">免伺服器、點擊直接複製網址</p>
+              <h4 class="text-sm font-black text-earth-night">傳連結共享編輯 (多人同步)</h4>
+              <p class="text-[11px] text-earth-caramel font-bold">免伺服器、點擊直接複製完整網址</p>
             </div>
           </div>
           
           <p class="text-xs text-earth-bark leading-relaxed">
-            系統會將目前行程、天數、站點與購物清單打包壓縮至網址中，傳給旅伴打開即可查看並接續編輯！
+            系統會將目前所有行程、天數、站點與購物清單打包壓縮至專屬連結。點擊下方按鈕複製後，直接傳到 LINE 聊天室，旅伴點開即可同步查看與編輯！
           </p>
 
-          <div class="flex gap-2">
-            <button @click="generateAndCopyShareLink" class="flex-1 py-2.5 bg-ginkgo-400 hover:bg-ginkgo-500 text-white rounded-xl text-xs font-black shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all">
-              <span>📋 複製完整共享連結 (傳給旅伴)</span>
-            </button>
-            <button @click="openQrCodeModal" class="px-3.5 py-2.5 bg-white border border-ginkgo-300 text-ginkgo-800 rounded-xl text-xs font-black active:scale-95">
-              QR Code
-            </button>
-          </div>
+          <button @click="generateAndCopyShareLink" class="w-full py-3 bg-ginkgo-400 hover:bg-ginkgo-500 text-white rounded-2xl text-xs font-black shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all">
+            <span>📋 一鍵複製完整共享連結 (傳給旅伴)</span>
+          </button>
 
-          <div v-if="shareSuccessNotice" class="text-xs text-emerald-800 bg-emerald-100 p-2 rounded-xl text-center font-bold">
-            ✅ 共享專屬連結已複製！可直接貼在 LINE 聊天室！
+          <div v-if="shareSuccessNotice" class="text-xs text-emerald-800 bg-emerald-100 p-2.5 rounded-xl text-center font-bold">
+            ✅ 共享專屬連結已複製到剪貼簿！可直接貼在 LINE 聊天室！
           </div>
         </div>
 
@@ -533,21 +528,6 @@
             ⚠️ 還原公版示範預設資料
           </button>
         </div>
-      </div>
-    </div>
-
-    <!-- QR Code 掃描彈窗 (大方格優化，任何手機相機 0.1 秒秒掃) -->
-    <div v-if="showQrModal" class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" @click.self="showQrModal = false">
-      <div class="bg-white p-5 rounded-3xl text-center max-w-xs w-full space-y-3">
-        <h4 class="text-sm font-black text-earth-night">📱 旅伴相機掃描開啟</h4>
-        <div class="w-48 h-48 mx-auto bg-earth-sand rounded-2xl flex items-center justify-center overflow-hidden border border-earth-clay p-2">
-          <img :src="qrCodeUrl" class="w-full h-full object-contain" alt="QR Code" />
-        </div>
-        <p class="text-xs text-earth-caramel font-bold">格點放大優化！相機一秒即可識別開啟</p>
-        <p class="text-[11px] text-earth-bark/70 leading-relaxed">
-          （若要同步你編輯好的完整行程，請點選「<strong>複製完整共享連結</strong>」貼在 LINE 傳送給旅伴）
-        </p>
-        <button @click="showQrModal = false" class="w-full py-2 bg-ginkgo-400 text-white rounded-xl text-xs font-bold active:scale-95">關閉</button>
       </div>
     </div>
 
@@ -616,7 +596,6 @@
         const activeDayIndex = ref(0);
         const activeTab = ref('itinerary');
         const showSettingsModal = ref(false);
-        const showQrModal = ref(false);
         const showAddSpotModal = ref(false);
         const showAddShoppingModal = ref(false);
         const showAddExpenseModal = ref(false);
@@ -755,8 +734,6 @@
           return result;
         });
 
-        const qrCodeUrl = ref('');
-
         const formatMoney = (val) => (!val && val !== 0) ? '0' : val.toLocaleString();
 
         const fetchLiveExchangeRate = async () => {
@@ -811,13 +788,6 @@
           } catch (err) {
             prompt('請直接手動複製以下專屬共享連結：', getShareableUrl());
           }
-        };
-
-        // 現場 QR Code：使用標準主網址，保持格點稀疏大顆，任何手機相機 0.1 秒秒掃
-        const openQrCodeModal = () => {
-          const cleanUrl = `${window.location.origin}${window.location.pathname}`;
-          qrCodeUrl.value = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=10&data=${encodeURIComponent(cleanUrl)}`;
-          showQrModal.value = true;
         };
 
         const loadSharedDataFromUrl = () => {
@@ -979,240 +949,4 @@
 
             const iconHtml = `
               <div style="
-                background: linear-gradient(135deg, #E5A93C, #D49427);
-                color: #FFFFFF;
-                width: 32px;
-                height: 32px;
-                border-radius: 16px 16px 16px 4px;
-                transform: rotate(-45deg);
-                box-shadow: 0 4px 10px rgba(114, 65, 20, 0.35);
-                border: 2px solid #FFFFFF;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              ">
-                <span style="
-                  transform: rotate(45deg);
-                  font-weight: 900;
-                  font-size: 13px;
-                  font-family: 'Zen Maru Gothic', sans-serif;
-                ">${idx + 1}</span>
-              </div>
-            `;
-
-            const customIcon = L.divIcon({
-              html: iconHtml,
-              className: 'custom-pin',
-              iconSize: [32, 32],
-              iconAnchor: [16, 32]
-            });
-
-            const marker = L.marker([lat, lng], { icon: customIcon }).addTo(leafletMap);
-            marker.bindPopup(`
-              <div style="font-size:12px; font-weight:700;">
-                <div style="color:#B8781B; margin-bottom:2px;">站點 ${idx + 1} · ${spot.time}</div>
-                <div style="font-size:14px; font-weight:900; color:#2C1D11;">${spot.name}</div>
-                <div style="color:#7A4B24; margin-top:4px;">${spot.notes || ''}</div>
-              </div>
-            `);
-
-            marker.on('click', () => {
-              selectedSpotIndex.value = idx;
-              mapMode.value = 'single';
-            });
-
-            mapMarkers.push(marker);
-          });
-
-          if (latlngs.length > 1) {
-            mapPolyline = L.polyline(latlngs, {
-              color: '#D49427',
-              weight: 4,
-              dashArray: '6, 8',
-              opacity: 0.9
-            }).addTo(leafletMap);
-          }
-
-          if (mapMode.value === 'all' && latlngs.length > 0) {
-            leafletMap.fitBounds(latlngs, { padding: [40, 40] });
-          }
-        };
-
-        const renderAllSpotsOnMap = () => {
-          mapMode.value = 'all';
-          updateMapLayers();
-        };
-
-        const focusSingleSpot = (spot, idx) => {
-          selectedSpotIndex.value = idx;
-          mapMode.value = 'single';
-          const lat = spot.lat || (35.68 + idx * 0.015);
-          const lng = spot.lng || (139.71 + idx * 0.015);
-          if (leafletMap) {
-            leafletMap.flyTo([lat, lng], 16, { duration: 1.2 });
-            if (mapMarkers[idx]) {
-              mapMarkers[idx].openPopup();
-            }
-          }
-        };
-
-        const locateOnMap = (spot) => {
-          const idx = currentDay.value.spots.findIndex(s => s.id === spot.id);
-          activeTab.value = 'map';
-          nextTick(() => {
-            initGoogleMap();
-            setTimeout(() => {
-              focusSingleSpot(spot, idx !== -1 ? idx : 0);
-            }, 300);
-          });
-        };
-
-        const openGoogleMapsApp = (destinationName) => {
-          const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destinationName + ' ' + tripConfig.value.tripName)}`;
-          window.open(url, '_blank');
-        };
-
-        const openDayFullRouteInGoogleMaps = () => {
-          const spots = currentDay.value.spots;
-          if (!spots.length) return;
-          const origin = encodeURIComponent(spots[0].name);
-          const destination = encodeURIComponent(spots[spots.length - 1].name);
-          const waypoints = spots.slice(1, -1).map(s => encodeURIComponent(s.name)).join('|');
-          const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=transit`;
-          window.open(url, '_blank');
-        };
-
-        const changeTab = (tabId) => {
-          activeTab.value = tabId;
-          if (tabId === 'map') {
-            initGoogleMap();
-          }
-        };
-
-        const openAddShoppingModal = () => {
-          newShoppingItem.value = { name: '', price: null, category: '藥妝美妝', store: '', image: '' };
-          showAddShoppingModal.value = true;
-        };
-        const handleShoppingImageUpload = (e) => {
-          const file = e.target.files[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => { newShoppingItem.value.image = event.target.result; };
-            reader.readAsDataURL(file);
-          }
-        };
-        const saveShoppingItem = () => {
-          if (!newShoppingItem.value.name) return;
-          shoppingList.value.push({ id: Date.now(), ...newShoppingItem.value, bought: false });
-          showAddShoppingModal.value = false;
-          saveAllToLocalStorage();
-        };
-        const toggleShoppingItem = (item) => {
-          item.bought = !item.bought;
-          saveAllToLocalStorage();
-        };
-        const deleteShoppingItem = (id) => {
-          shoppingList.value = shoppingList.value.filter(i => i.id !== id);
-          saveAllToLocalStorage();
-        };
-        const openLightbox = (imgSrc) => { if (imgSrc) lightboxImage.value = imgSrc; };
-
-        const openAddExpenseModal = () => {
-          newExpense.value = { title: '', amount: null, payer: '' };
-          showAddExpenseModal.value = true;
-        };
-        const saveNewExpense = () => {
-          if (!newExpense.value.title || !newExpense.value.amount || !newExpense.value.payer) return;
-          expenses.value.push({ id: Date.now(), ...newExpense.value });
-          showAddExpenseModal.value = false;
-          saveAllToLocalStorage();
-        };
-        const deleteExpense = (idx) => {
-          expenses.value.splice(idx, 1);
-          saveAllToLocalStorage();
-        };
-
-        const openAddSpotModal = () => {
-          newSpot.value = { name: '', time: '10:00', category: '景點', notes: '' };
-          showAddSpotModal.value = true;
-        };
-        const saveNewSpot = () => {
-          if (!newSpot.value.name) return;
-          currentDay.value.spots.push({
-            id: 'spot_' + Date.now(),
-            ...newSpot.value,
-            lat: 35.6812 + (Math.random() - 0.5) * 0.05,
-            lng: 139.7671 + (Math.random() - 0.5) * 0.05
-          });
-          showAddSpotModal.value = false;
-          saveAllToLocalStorage();
-          updateMapLayers();
-        };
-        const deleteSpot = (idx) => {
-          currentDay.value.spots.splice(idx, 1);
-          saveAllToLocalStorage();
-          updateMapLayers();
-        };
-
-        const setAppIcon = (emoji) => {
-          currentAppIcon.value = emoji;
-          saveAllToLocalStorage();
-        };
-
-        const resetToTemplateData = () => {
-          if (confirm('確定要還原為示範公版資料嗎？這將覆蓋現有內容。')) {
-            tripDays.value = JSON.parse(JSON.stringify(defaultTripDays));
-            tripConfig.value.tripName = '東京旅行';
-            dateSettings.value = { startDate: '2026-10-11', endDate: '2026-10-18' };
-            currentAppIcon.value = '🍂';
-            saveAllToLocalStorage();
-            showSettingsModal.value = false;
-            updateMapLayers();
-          }
-        };
-
-        const initGinkgoLeaves = () => {
-          const canvas = document.getElementById('ginkgo-canvas');
-          if (!canvas) return;
-          const ctx = canvas.getContext('2d');
-          let width = canvas.width = window.innerWidth;
-          let height = canvas.height = window.innerHeight;
-
-          window.addEventListener('resize', () => {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
-          });
-
-          const leaves = Array.from({ length: 18 }, () => ({
-            x: Math.random() * width,
-            y: Math.random() * height - height,
-            size: Math.random() * 14 + 16,
-            speedY: Math.random() * 0.8 + 0.5,
-            speedX: Math.random() * 0.6 - 0.3,
-            angle: Math.random() * Math.PI * 2,
-            spin: Math.random() * 0.02 - 0.01,
-            color: Math.random() > 0.3 ? '#E5A93C' : '#EECA82'
-          }));
-
-          const drawGinkgo = (ctx, x, y, size, angle, color) => {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(angle);
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.bezierCurveTo(-size * 0.7, -size * 0.6, -size * 0.9, -size * 1.1, -size * 0.2, -size * 1.25);
-            ctx.lineTo(0, -size * 0.85);
-            ctx.bezierCurveTo(size * 0.2, -size * 1.25, size * 0.9, -size * 1.1, size * 0.7, -size * 0.6);
-            ctx.closePath();
-            ctx.fill();
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.quadraticCurveTo(size * 0.1, size * 0.2, size * 0.15, size * 0.4);
-            ctx.stroke();
-            ctx.restore();
-          };
-
-          const animate = () => {
+                background: linear-gradient(135
